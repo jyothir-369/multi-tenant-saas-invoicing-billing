@@ -1,15 +1,27 @@
-import { ForbiddenException, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/tenant-context.service';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
   constructor(private readonly tenantContext: TenantContextService) {
     super();
   }
 
   async onModuleInit() {
-    await this.$connect();
+    const timeoutMs = Number(process.env.DATABASE_CONNECT_TIMEOUT_MS || 10000);
+    try {
+      await Promise.race([
+        this.$connect(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`database connection timed out after ${timeoutMs}ms`)), timeoutMs)),
+      ]);
+      this.logger.log('Database connection established');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown database connection error';
+      this.logger.error(`Database connection failed: ${message}`);
+      throw new Error('Database connection failed. Check DATABASE_URL and database availability.');
+    }
   }
 
   async onModuleDestroy() {

@@ -21,7 +21,13 @@ export class HealthService {
   }
 
   private async checkPostgres(): Promise<boolean> {
-    try { await this.prisma.$queryRawUnsafe('SELECT 1'); return true; } catch { return false; }
+    try {
+      await Promise.race([
+        this.prisma.$queryRawUnsafe('SELECT 1'),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('database health check timed out')), 3000)),
+      ]);
+      return true;
+    } catch { return false; }
   }
 
   private async checkRedis(): Promise<boolean> {
