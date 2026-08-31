@@ -1,69 +1,18 @@
-import Image from "next/image";
+"use client";
+import { FormEvent, useEffect, useState } from "react";
 import styles from "./page.module.css";
-
+type Balance = { outstanding: number; overdue: number; paidThisMonth: number };
+type Customer = { id: string; name: string; email: string; balance: number };
+type Invoice = { id: string; customerName?: string; amount: number; balance?: number; status: string; dueDate: string };
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+  const [token, setToken] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [balance, setBalance] = useState<Balance | null>(null); const [customers, setCustomers] = useState<Customer[]>([]); const [invoices, setInvoices] = useState<Invoice[]>([]); const [error, setError] = useState("");
+  async function api<T>(path: string): Promise<T> { const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? "Request failed"); return r.json(); }
+  async function load() { try { setError(""); const [b, c, i] = await Promise.all([api<Balance>("/dashboard/balance"), api<Customer[]>("/customers"), api<Invoice[]>("/invoices")]); setBalance(b); setCustomers(c); setInvoices(i); } catch (e) { setError(e instanceof Error ? e.message : "Unable to load dashboard"); } }
+  async function login(e: FormEvent) { e.preventDefault(); try { const r = await fetch(`${API}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) }); if (!r.ok) throw new Error("Invalid email or password"); const d = await r.json(); setToken(d.accessToken ?? d.token); } catch (e) { setError(e instanceof Error ? e.message : "Unable to sign in"); } }
+  useEffect(() => { if (token) void load(); }, [token]);
+  if (!token) return <main className={styles.login}><section className={styles.card}><p className={styles.eyebrow}>LEDGERLY</p><h1>Billing, made clear.</h1><p>Sign in to your secure tenant dashboard.</p><form onSubmit={login}><input aria-label="Email" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required /><input aria-label="Password" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required /><button type="submit">Sign in</button></form>{error && <p className={styles.error}>{error}</p>}</section></main>;
+  return <main className={styles.shell}><header><div><p className={styles.eyebrow}>LEDGERLY</p><h1>Overview</h1></div><button className={styles.ghost} onClick={() => setToken("")}>Sign out</button></header>{error && <p className={styles.error}>{error}</p>}<section className={styles.metrics}>{[["Outstanding", balance?.outstanding ?? 0], ["Overdue", balance?.overdue ?? 0], ["Paid this month", balance?.paidThisMonth ?? 0]].map(([label, value]) => <article className={styles.metric} key={label as string}><span>{label}</span><strong>{money(value as number)}</strong></article>)}</section><div className={styles.columns}><section className={styles.panel}><h2>Customers</h2>{customers.map(c => <div className={styles.row} key={c.id}><span><b>{c.name}</b><small>{c.email}</small></span><strong>{money(c.balance)}</strong></div>)}</section><section className={styles.panel}><h2>Recent invoices</h2>{invoices.slice(0, 8).map(i => <div className={styles.row} key={i.id}><span><b>{i.customerName ?? "Customer"}</b><small>{i.status} · due {new Date(i.dueDate).toLocaleDateString()}</small></span><strong>{money(i.balance ?? i.amount)}</strong></div>)}</section></div></main>;
 }
