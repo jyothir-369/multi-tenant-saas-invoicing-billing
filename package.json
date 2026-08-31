@@ -1,6 +1,7 @@
 {
   "name": "multi-tenant-saas-invoicing-billing-platform",
   "private": true,
+  "packageManager": "npm@11.11.0",
   "workspaces": ["backend", "frontend"],
   "scripts": {
     "dev": "turbo run dev",
@@ -12,6 +13,6 @@
     "start:frontend": "turbo run start --filter=frontend"
   },
   "devDependencies": {
-    "turbo": "^2.5.6"
+    "turbo": "^2.10.12"
   }
 }
