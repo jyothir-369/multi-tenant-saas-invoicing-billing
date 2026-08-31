@@ -112,10 +112,14 @@ model OutboxEvent {
   type        String
   payload     Json
   processedAt DateTime? @map("processed_at")
+  failedAt    DateTime? @map("failed_at")
+  failureReason String? @map("failure_reason")
+  attempts    Int      @default(0)
   createdAt   DateTime  @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([processedAt])
+  @@index([tenantId, failedAt])
   @@map("outbox_events")
 }

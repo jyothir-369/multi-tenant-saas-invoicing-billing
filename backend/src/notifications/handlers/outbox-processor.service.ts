@@ -64,7 +64,7 @@ export class OutboxProcessorService {
     try {
       // Run in tenant context for proper isolation
       await this.tenantContext.run(tenantId, async () => {
-        await this.handleEventByType(eventType, payload, eventId);
+        await this.handleEventByType(eventType, { ...payload, tenantId }, eventId);
         
         // Mark event as processed
         await this.prisma.outboxEvent.update({
@@ -81,6 +81,10 @@ export class OutboxProcessorService {
       return true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await this.prisma.outboxEvent.update({
+        where: { id: eventId },
+        data: { failedAt: new Date(), failureReason: errorMessage, attempts: { increment: 1 } },
+      }).catch((updateError) => this.logger.error(`Could not record outbox failure: ${updateError}`));
       this.logger.error(`Failed to process event ${eventId}: ${errorMessage}`, error);
       return false;
     }
