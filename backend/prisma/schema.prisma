@@ -86,6 +86,7 @@ model Invoice {
   payments Payment[]
 
   @@index([tenantId, status])
+  @@index([tenantId, dueDate, status])
   @@map("invoices")
 }
 
@@ -102,6 +103,7 @@ model Payment {
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
 
   @@map("payments")
+  @@index([tenantId, status, createdAt])
 }
 
 model OutboxEvent {
