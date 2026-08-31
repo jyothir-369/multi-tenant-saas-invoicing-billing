@@ -20,7 +20,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown database connection error';
       this.logger.error(`Database connection failed: ${message}`);
-      throw new Error('Database connection failed. Check DATABASE_URL and database availability.');
+      this.logger.warn('Application will start without a database connection; health checks will report the database as down.');
     }
   }
 

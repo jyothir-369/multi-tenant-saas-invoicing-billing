@@ -16,6 +16,7 @@ class JsonLogger implements LoggerService {
 }
 
 async function bootstrap() {
+  console.log('Application initialization started');
   validateProductionEnvironment();
   const app = await NestFactory.create(AppModule, { logger: process.env.LOG_FORMAT === 'json' ? new JsonLogger() : new Logger() });
   const configuredOrigins = (process.env.FRONTEND_URL || '')
@@ -46,4 +47,9 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`HTTP server listening on 0.0.0.0:${port}`);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  const message = error instanceof Error ? error.message : 'unknown bootstrap error';
+  console.error(`Application startup failed: ${message}`);
+  process.exitCode = 1;
+});
