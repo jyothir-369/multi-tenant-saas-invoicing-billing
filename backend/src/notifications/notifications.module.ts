@@ -6,6 +6,7 @@ import { OutboxProcessorService, EmailHandlerService } from './handlers';
 import { BackgroundWorkersService } from './workers';
 import {
   SmtpEmailProvider,
+  MockEmailProvider,
   PdfGeneratorService,
 } from './adapters';
 import { InvoicesModule } from '../billing/invoices.module';
@@ -23,7 +24,15 @@ import { PaymentsModule } from '../payments/payments.module';
     OutboxProcessorService,
     EmailHandlerService,
     BackgroundWorkersService,
-    SmtpEmailProvider,
+    {
+      provide: SmtpEmailProvider,
+      useFactory: (): SmtpEmailProvider | MockEmailProvider => {
+        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+          return new SmtpEmailProvider();
+        }
+        return new MockEmailProvider();
+      },
+    },
     PdfGeneratorService,
   ],
   exports: [
