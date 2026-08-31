@@ -1,5 +1,6 @@
 ﻿import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
+import { readFile } from 'node:fs/promises';
 import { QueueService, JOB_NAMES, QueueJobData } from '../queues';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantContextService } from '../../common/tenant-context.service';
@@ -81,10 +82,14 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
   private getRedisConfig(): any {
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+    const password = process.env.REDIS_PASSWORD;
+    const tlsEnabled = process.env.REDIS_TLS === 'true';
 
     return {
       host,
       port,
+      ...(password ? { password } : {}),
+      ...(tlsEnabled ? { tls: {} } : {}),
       maxRetriesPerRequest: null,
     };
   }
@@ -132,7 +137,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
             amount: payload.amount,
             dueDate: payload.dueDate,
             paymentLink: payload.paymentLink,
-            pdfBuffer: payload.pdfBuffer,
+            pdfBuffer: payload.pdfBuffer || (payload.pdfPath ? await readFile(payload.pdfPath) : undefined),
           });
           break;
 

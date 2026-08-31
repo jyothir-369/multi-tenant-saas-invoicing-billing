@@ -37,7 +37,10 @@ export class SmtpEmailProvider implements EmailProviderAdapter {
     this.fromAddress = process.env.SMTP_FROM || 'noreply@saas-billing.com';
 
     // Configure transporter based on environment
-    if (process.env.NODE_ENV === 'production' && user && pass) {
+    if (process.env.NODE_ENV === 'production' && (!user || !pass)) {
+      throw new Error('SMTP_USER and SMTP_PASS are required in production');
+    }
+    if (process.env.NODE_ENV === 'production') {
       this.transporter = nodemailer.createTransport({
         host,
         port,

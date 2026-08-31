@@ -15,6 +15,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+    HealthModule,
     CustomersModule,
     InvoicesModule,
     PaymentsModule,

@@ -79,19 +79,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   private getRedisConfig(): any {
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
-    
-    // For development without Redis, use mock behavior
-    if (process.env.NODE_ENV === 'development' && !process.env.REDIS_URL) {
-      return {
-        host: 'localhost',
-        port: 6379,
-        maxRetriesPerRequest: null,
-      };
-    }
-
+    const password = process.env.REDIS_PASSWORD;
+    const tlsEnabled = process.env.REDIS_TLS === 'true';
     return {
       host,
       port,
+      ...(password ? { password } : {}),
+      ...(tlsEnabled ? { tls: {} } : {}),
       maxRetriesPerRequest: null,
     };
   }
