@@ -248,7 +248,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Processing outbox job for tenant ${tenantId}`);
 
     // Process unprocessed events
-    const processed = await this.outboxProcessor.processUnprocessedEvents(50);
+    const processed = await this.outboxProcessor.processUnprocessedEvents(50, tenantId);
     this.logger.log(`Processed ${processed} outbox events`);
     // Throwing makes BullMQ apply its configured exponential retry policy.
     // A successful empty batch is still a successful job.
