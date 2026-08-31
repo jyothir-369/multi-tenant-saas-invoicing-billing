@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { defer, Observable } from 'rxjs';
 import { TenantContextService } from './tenant-context.service';
 
 @Injectable()
@@ -9,8 +9,8 @@ export class TenantContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const tenantId = context.switchToHttp().getRequest().user?.tenantId;
 
-    return tenantId
-      ? this.tenantContext.run(tenantId, () => next.handle())
-      : next.handle();
+    // Nest subscribes after intercept() returns; defer keeps ALS active while
+    // the handler and its asynchronous work execute.
+    return tenantId ? defer(() => this.tenantContext.run(tenantId, () => next.handle())) : next.handle();
   }
 }

@@ -32,6 +32,7 @@ export class HealthService {
 
   private async checkRedis(): Promise<boolean> {
     const redis = new Redis({
+      ...(process.env.REDIS_URL ? { url: process.env.REDIS_URL } : {}),
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
       ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {}),
@@ -39,6 +40,7 @@ export class HealthService {
       maxRetriesPerRequest: 1,
       connectTimeout: 2000,
       lazyConnect: true,
+      retryStrategy: () => null,
     });
     try { await redis.connect(); await redis.ping(); return true; } catch { return false; } finally { redis.disconnect(); }
   }

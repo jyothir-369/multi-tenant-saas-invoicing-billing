@@ -33,6 +33,11 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (process.env.ENABLE_BACKGROUND_WORKERS !== 'true') {
+      this.logger.log('Background workers disabled for web process; run start:worker separately');
+      return;
+    }
+
     const redisConfig = this.getRedisConfig();
 
     // Email worker
@@ -80,6 +85,9 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getRedisConfig(): any {
+    if (process.env.REDIS_URL) {
+      return { url: process.env.REDIS_URL, maxRetriesPerRequest: null, connectTimeout: 2000, enableOfflineQueue: false };
+    }
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
     const password = process.env.REDIS_PASSWORD;
@@ -91,6 +99,8 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
       ...(password ? { password } : {}),
       ...(tlsEnabled ? { tls: {} } : {}),
       maxRetriesPerRequest: null,
+      connectTimeout: 2000,
+      enableOfflineQueue: false,
     };
   }
 

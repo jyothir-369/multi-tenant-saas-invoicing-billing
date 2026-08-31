@@ -16,7 +16,6 @@ class JsonLogger implements LoggerService {
 }
 
 async function bootstrap() {
-  console.log('Application initialization started');
   validateProductionEnvironment();
   const app = await NestFactory.create(AppModule, { logger: process.env.LOG_FORMAT === 'json' ? new JsonLogger() : new Logger() });
   const configuredOrigins = (process.env.FRONTEND_URL || '')
@@ -35,7 +34,11 @@ async function bootstrap() {
   };
 
   app.enableCors({
-    origin: isAllowedOrigin,
+    // The cors package invokes origin as a Node-style callback. Returning a
+    // boolean here leaves every request waiting for a callback indefinitely.
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      callback(null, isAllowedOrigin(origin));
+    },
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
@@ -43,13 +46,14 @@ async function bootstrap() {
   if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
   }
+  console.log('PORT environment variable:', process.env.PORT);
   const port = Number(process.env.PORT) || 3000;
+  console.log(`Starting HTTP server on 0.0.0.0:${port}`);
   await app.listen(port, '0.0.0.0');
-  console.log(`HTTP server listening on 0.0.0.0:${port}`);
+  console.log(`HTTP server successfully listening on port ${port}`);
 }
 
 bootstrap().catch((error) => {
-  const message = error instanceof Error ? error.message : 'unknown bootstrap error';
-  console.error(`Application startup failed: ${message}`);
-  process.exitCode = 1;
+  console.error('Failed to start application:', error);
+  process.exit(1);
 });

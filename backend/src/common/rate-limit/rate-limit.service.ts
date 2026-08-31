@@ -26,7 +26,8 @@ export class RateLimitService implements OnModuleInit, OnModuleDestroy {
     };
     if (redisUrl || process.env.REDIS_HOST) {
       try {
-        this.redis = new Redis(redisOptions as any);
+        this.redis = new Redis({ ...(redisOptions as any), connectTimeout: 2000, maxRetriesPerRequest: 1, retryStrategy: () => null });
+        this.redis.on('error', (error) => this.logger.warn(`Redis rate limiting unavailable: ${error.message}`));
         this.logger.log('Redis connected for rate limiting');
       } catch (error) {
         this.logger.warn('Failed to connect to Redis, rate limiting will be in-memory');
