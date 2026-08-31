@@ -182,7 +182,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
         case JOB_NAMES.GENERATE_INVOICE_PDF:
           // Fetch invoice data from database
           const invoice = await this.prisma.invoice.findFirst({
-            where: { id: payload.invoiceId },
+      where: { id: payload.invoiceId, tenantId },
             include: {
               customer: true,
               tenant: true,
@@ -250,6 +250,12 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
     // Process unprocessed events
     const processed = await this.outboxProcessor.processUnprocessedEvents(50);
     this.logger.log(`Processed ${processed} outbox events`);
+    // Throwing makes BullMQ apply its configured exponential retry policy.
+    // A successful empty batch is still a successful job.
+    if (processed === 0) {
+      const pending = await this.prisma.outboxEvent.count({ where: { processedAt: null, tenantId } });
+      if (pending > 0) throw new Error(`Failed to process outbox events for tenant ${tenantId}`);
+    }
   }
 
   /**
