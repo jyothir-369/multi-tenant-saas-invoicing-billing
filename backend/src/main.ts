@@ -42,6 +42,8 @@ async function bootstrap() {
   if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
   }
-  await app.listen(process.env.PORT || 3000);
+  const port = Number(process.env.PORT) || 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`HTTP server listening on 0.0.0.0:${port}`);
 }
 bootstrap();
