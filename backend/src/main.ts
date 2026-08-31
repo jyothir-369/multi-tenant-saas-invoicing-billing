@@ -28,9 +28,13 @@ async function bootstrap() {
     'http://localhost:3001',
     ...configuredOrigins,
   ].filter((origin, index, origins) => origins.indexOf(origin) === index);
+  const isAllowedOrigin = (origin?: string): boolean => {
+    if (!origin) return true;
+    return allowedOrigins.includes(origin) || /^https:\/\/multi-tenant-saas-invoicing-billing-[a-z0-9-]+\.vercel\.app$/.test(origin);
+  };
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: isAllowedOrigin,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
