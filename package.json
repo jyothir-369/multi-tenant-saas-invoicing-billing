@@ -1,0 +1,17 @@
+{
+  "name": "multi-tenant-saas-invoicing-billing-platform",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test --filter=backend",
+    "lint": "turbo run lint",
+    "start:api": "turbo run start:prod --filter=backend",
+    "start:worker": "turbo run start:worker --filter=backend",
+    "start:frontend": "turbo run start --filter=frontend"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6"
+  }
+}

@@ -1,50 +1,26 @@
-# Multi-Tenant SaaS Billing Platform
+# Backend
+
+NestJS API with Prisma/PostgreSQL, JWT authentication, tenant isolation, OWNER/STAFF RBAC, customers, invoices, recurring billing, payments, Stripe webhooks, PDF/email notifications, health checks, Redis rate limiting, and BullMQ workers.
 
 ## Setup
 
-```bash
-npm ci
-copy .env.example .env
-npx prisma generate
-npx prisma migrate deploy
-```
+From the root: `npm install`, copy `../example.env` to `.env`, set local values, then run `npm run prisma:generate` and `npm run prisma:migrate`. Production uses `prisma migrate deploy`. Required values are `DATABASE_URL`, a 32+ character `JWT_SECRET`, `REDIS_HOST`, and `REDIS_PORT`; see `.env.example` for all database, Redis/TLS, SMTP, Stripe, CORS, proxy, logging, and rate-limit settings. Never commit `.env` or secrets.
 
-`DATABASE_URL` must point to PostgreSQL. The schema uses tenant-scoped tables and indexes on invoice status/due date, payments, and outbox failures. This repository currently contains the Prisma schema but no committed migration history; initialize a migration in a PostgreSQL environment with `npx prisma migrate dev --name init`, review it, and use `prisma migrate deploy` in production.
+## Commands
 
-## Environment
-
-See `.env.example`. `DATABASE_URL`, `JWT_SECRET`, `REDIS_HOST`, and `REDIS_PORT` are required. Production additionally requires Stripe (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) and SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`). Production rejects missing values and JWT secrets shorter than 32 characters. Never commit `.env` or provider secrets.
-
-## Run
-
-```bash
+```powershell
 npm run start:dev
+npm run build
 npm run start:prod
-```
-
-The API listens on `PORT` (3001 in the example). Redis is required for BullMQ workers; run the API and workers from the same built application deployment. Workers start with the notifications module and process PDF, email, outbox, and recurring-invoice queues.
-
-The Next.js dashboard is in `../frontend`:
-
-```bash
-cd ../frontend
-npm ci
-npm run dev
-```
-
-Set `NEXT_PUBLIC_API_URL` to the API origin when it differs from `http://localhost:3000`.
-
-## Tests and verification
-
-```bash
+npm run start:worker
 npm test -- --runInBand
 npm run test:e2e
 npm run test:phase9
-npm run build
+npm run lint
 ```
 
-`test:phase9` is a live PostgreSQL integration and performance suite. It requires `DATABASE_URL`, a migrated database, and compatible Redis configuration. Without PostgreSQL it skips and makes no performance claim. When enabled it creates 10,000 invoices and reports the measured PostgreSQL dashboard-query p95 against the PRD target of 300ms.
+The API is compiled to `dist/main.js`; the independent worker is `dist/worker.js`. Both use the same Redis configuration, including password and TLS. Development falls back to mock Stripe and test SMTP when credentials are absent; production requires real providers. Card data is never stored. Protected routes derive tenant context from JWT authentication, and webhook signatures are verified.
 
-## Production notes
+## Operations
 
-Use TLS PostgreSQL/Redis connections, managed secrets, Stripe webhook signature verification, a persistent Redis instance, SMTP delivery monitoring, and external health/alerting. Card data is handled by Stripe and is not stored by this service. Multi-currency tax logic and a full general ledger are intentionally outside the PRD scope.
+Run API and worker separately against the same PostgreSQL and persistent Redis services. Use TLS, managed secrets, HTTPS reverse proxy/trusted proxy configuration, restricted `FRONTEND_URL` CORS, SMTP monitoring, and `/health` monitoring in production. Phase 9 live integration/performance tests require reachable migrated PostgreSQL/Redis and make no benchmark claim when unavailable.
