@@ -1,0 +1,3 @@
+import styles from "../page.module.css";
+export default function OverviewPage(){return <DashboardView title="Overview" description="Your billing workspace at a glance."/>}
+export function DashboardView({title,description}:{title:string;description:string}){return <div className={styles.main}><div className={styles.heading}><div><span className={styles.kicker}>LEDGERLY WORKSPACE</span><h1>{title}<span className={styles.dot}>.</span></h1><p>{description}</p></div></div><div className={styles.empty}><span>◌</span><b>No data to display yet</b><p>Billing activity will appear here once your workspace has data.</p></div></div>}
