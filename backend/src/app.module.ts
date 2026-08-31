@@ -11,12 +11,16 @@ import { InvoicesModule } from './billing/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
     CommonModule,
     PrismaModule,
     AuthModule,
+    TenantsModule,
+    UsersModule,
     CustomersModule,
     InvoicesModule,
     PaymentsModule,
@@ -38,3 +42,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
   ],
 })
 export class AppModule {}
+import { DashboardModule } from './dashboard/dashboard.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { UsersModule } from './users/users.module';

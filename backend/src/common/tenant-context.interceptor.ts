@@ -4,9 +4,13 @@ import { TenantContextService } from './tenant-context.service';
 
 @Injectable()
 export class TenantContextInterceptor implements NestInterceptor {
-  constructor(private readonly context: TenantContextService) {}
+  constructor(private readonly tenantContext: TenantContextService) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const tenantId = context.switchToHttp().getRequest().user?.tenantId;
-    return tenantId ? this.context.run(tenantId, () => next.handle()) : next.handle();
+
+    return tenantId
+      ? this.tenantContext.run(tenantId, () => next.handle())
+      : next.handle();
   }
 }
