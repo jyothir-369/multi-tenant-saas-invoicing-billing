@@ -18,11 +18,26 @@ class JsonLogger implements LoggerService {
 async function bootstrap() {
   validateProductionEnvironment();
   const app = await NestFactory.create(AppModule, { logger: process.env.LOG_FORMAT === 'json' ? new JsonLogger() : new Logger() });
-  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map((origin) => origin.trim()).filter(Boolean);
-  app.enableCors({ origin: allowedOrigins, credentials: true });
+  const configuredOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const allowedOrigins = [
+    'https://multi-tenant-saas-invoicing-billing-six.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    ...configuredOrigins,
+  ].filter((origin, index, origins) => origins.indexOf(origin) === index);
+
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+  });
   if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
   }
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
