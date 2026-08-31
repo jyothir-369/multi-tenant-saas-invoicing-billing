@@ -23,9 +23,9 @@ export class OutboxProcessorService {
    * Process unprocessed outbox events.
    * This is called by the worker to process events from the database.
    */
-  async processUnprocessedEvents(limit: number = 100): Promise<number> {
+  async processUnprocessedEvents(limit: number = 100, tenantId?: string): Promise<number> {
     const events = await this.prisma.outboxEvent.findMany({
-      where: { processedAt: null },
+      where: { processedAt: null, ...(tenantId ? { tenantId } : {}) },
       orderBy: { createdAt: 'asc' },
       take: limit,
     });
