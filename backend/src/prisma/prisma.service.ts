@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ForbiddenException, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/tenant-context.service';
 
@@ -20,15 +20,30 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const tenantId = this.tenantContext.getTenantId();
     
     if (!tenantId) {
-      return this;
+      throw new ForbiddenException('Tenant context not available');
     }
 
     return this.$extends({
       query: {
         $allModels: {
           async $allOperations({ model, operation, args, query }: { model: string; operation: string; args: any; query: Function }) {
-            if (['findFirst', 'findMany', 'count', 'update', 'updateMany', 'delete', 'deleteMany'].includes(operation)) {
+            // Tenant is the root record and is accessed by its authenticated tenant id.
+            if (model === 'Tenant') {
+              return query(args);
+            }
+            if (['findUnique', 'findFirst', 'findMany', 'count', 'aggregate', 'groupBy', 'update', 'updateMany', 'delete', 'deleteMany', 'upsert'].includes(operation)) {
               args.where = { ...args.where, tenantId };
+              if (['update', 'updateMany', 'upsert'].includes(operation) && args.data) {
+                if (Array.isArray(args.data)) {
+                  args.data = args.data.map((item: any) => {
+                    const { tenantId: _ignored, ...safeData } = item;
+                    return safeData;
+                  });
+                } else {
+                  const { tenantId: _ignored, ...safeData } = args.data;
+                  args.data = safeData;
+                }
+              }
             } else if (['create', 'createMany'].includes(operation)) {
               if (Array.isArray(args.data)) {
                 args.data = args.data.map((item: any) => ({ ...item, tenantId }));
