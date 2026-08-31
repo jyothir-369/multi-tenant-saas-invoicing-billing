@@ -10,12 +10,16 @@ import { CustomersModule } from './customers/customers.module';
 import { InvoicesModule } from './billing/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
     CommonModule,
     PrismaModule,
     AuthModule,
+    TenantsModule,
+    UsersModule,
     CustomersModule,
     InvoicesModule,
     PaymentsModule,

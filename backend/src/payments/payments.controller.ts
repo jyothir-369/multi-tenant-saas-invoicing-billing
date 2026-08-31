@@ -13,6 +13,8 @@ import { CreatePaymentIntentDto, CreatePaymentIntentResponseDto, RefundPaymentDt
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
+import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard)
@@ -24,6 +26,8 @@ export class PaymentsController {
    * Returns client secret for frontend Stripe.js integration.
    */
   @Post('intent')
+  @UseGuards(RateLimitGuard)
+  @RateLimit('payments')
   async createPaymentIntent(
     @Body() dto: CreatePaymentIntentDto,
     @CurrentUser() user: CurrentUserData,
