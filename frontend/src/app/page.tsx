@@ -2,7 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const API = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 const AUTH_TIMEOUT_MS = 20000;
 export default function Home() {
   const router = useRouter(); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [tenantName,setTenantName]=useState(""); const [registerMode,setRegisterMode]=useState(false); const [submitting,setSubmitting]=useState(false); const [error,setError]=useState("");
