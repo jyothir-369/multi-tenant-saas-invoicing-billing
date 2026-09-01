@@ -45,6 +45,17 @@ export class PaymentsController {
     return this.paymentsService.findAll(invoiceId);
   }
 
+  @Get('stats/summary')
+  async getPaymentStats(): Promise<{
+    totalPayments: number;
+    totalAmount: number;
+    pendingAmount: number;
+    completedAmount: number;
+    refundedAmount: number;
+  }> {
+    return this.paymentsService.getPaymentStats();
+  }
+
   /**
    * Get a single payment by ID.
    */
@@ -78,14 +89,4 @@ export class PaymentsController {
   /**
    * Get payment statistics for the tenant dashboard.
    */
-  @Get('stats/summary')
-  async getPaymentStats(): Promise<{
-    totalPayments: number;
-    totalAmount: number;
-    pendingAmount: number;
-    completedAmount: number;
-    refundedAmount: number;
-  }> {
-    return this.paymentsService.getPaymentStats();
-  }
 }

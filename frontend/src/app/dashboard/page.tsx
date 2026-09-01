@@ -1,13 +1,119 @@
 "use client";
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import styles from '../page.module.css';
-import { api, formatMoney } from '../../lib/api';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import styles from "../page.module.css";
+import { api, formatMoney } from "../../lib/api";
 type Balance = { outstanding: number; overdue: number; paidThisMonth: number };
-type Invoice = { id: string; invoiceNumber?: string; customerName?: string; amount: number; balance?: number; status: string; dueDate: string };
+type Invoice = {
+  id: string;
+  invoiceNumber?: string;
+  customerName?: string;
+  amount: number;
+  balance?: number;
+  status: string;
+  dueDate: string;
+};
 export default function OverviewPage() {
-  const [balance, setBalance] = useState<Balance>(); const [invoices, setInvoices] = useState<Invoice[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  const load = useCallback(async () => { setLoading(true); setError(''); try { const [b, i] = await Promise.all([api<Balance>('/dashboard/balance'), api<Invoice[]>('/invoices')]); setBalance(b); setInvoices(i.slice(0, 6)); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load dashboard data.'); } finally { setLoading(false); } }, []);
-  useEffect(() => { void load(); }, [load]);
-  return <div className={styles.main}><div className={styles.heading}><div><span className={styles.kicker}>LEDGERLY WORKSPACE</span><h1>Overview<span className={styles.dot}>.</span></h1><p>Your billing workspace at a glance.</p></div></div>{error && <div className={styles.alert}><span>!</span><div><b>Couldn’t load your dashboard</b><p>{error}</p><button onClick={() => void load()}>Try again</button></div></div>}{loading ? <div className={styles.empty}>Loading your billing data…</div> : <><section className={styles.kpis}>{[['Outstanding', balance?.outstanding], ['Overdue', balance?.overdue], ['Paid this month', balance?.paidThisMonth]].map(([label, value]) => <article className={styles.kpi} key={label as string}><span>{label}</span><strong>{formatMoney(Number(value || 0))}</strong><small>From your tenant workspace</small></article>)}</section><section className={styles.panel}><div className={styles.panelHeader}><div><h2>Recent invoices</h2><p>Latest billing activity</p></div><Link href="/dashboard/invoices">View all →</Link></div>{invoices.length ? <div className={styles.table}>{invoices.map(invoice => <div className={styles.tableRow} key={invoice.id}><span>{invoice.invoiceNumber || `Invoice ${invoice.id.slice(0, 6)}`}<small>{invoice.customerName || 'Customer'}</small></span><span className={styles.badge}>{invoice.status}</span><b>{formatMoney(invoice.balance ?? invoice.amount)}</b><small>{new Date(invoice.dueDate).toLocaleDateString()}</small></div>)}</div> : <div className={styles.empty}><b>No invoices yet</b><p>Invoices will appear here when your workspace has billing activity.</p></div>}</section></>}</div>;
+  const [balance, setBalance] = useState<Balance>();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [b, i] = await Promise.all([
+        api<Balance>("/dashboard/balance"),
+        api<Invoice[]>("/invoices"),
+      ]);
+      setBalance(b);
+      setInvoices(i.slice(0, 6));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Unable to load dashboard data.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    queueMicrotask(() => void load());
+  }, [load]);
+  return (
+    <div className={styles.main}>
+      <div className={styles.heading}>
+        <div>
+          <span className={styles.kicker}>LEDGERLY WORKSPACE</span>
+          <h1>
+            Overview<span className={styles.dot}>.</span>
+          </h1>
+          <p>Your billing workspace at a glance.</p>
+        </div>
+      </div>
+      {error && (
+        <div className={styles.alert}>
+          <span>!</span>
+          <div>
+            <b>Couldn’t load your dashboard</b>
+            <p>{error}</p>
+            <button onClick={() => void load()}>Try again</button>
+          </div>
+        </div>
+      )}
+      {loading ? (
+        <div className={styles.empty}>Loading your billing data…</div>
+      ) : (
+        <>
+          <section className={styles.kpis}>
+            {[
+              ["Outstanding", balance?.outstanding],
+              ["Overdue", balance?.overdue],
+              ["Paid this month", balance?.paidThisMonth],
+            ].map(([label, value]) => (
+              <article className={styles.kpi} key={label as string}>
+                <span>{label}</span>
+                <strong>{formatMoney(Number(value || 0))}</strong>
+                <small>From your tenant workspace</small>
+              </article>
+            ))}
+          </section>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>Recent invoices</h2>
+                <p>Latest billing activity</p>
+              </div>
+              <Link href="/dashboard/invoices">View all →</Link>
+            </div>
+            {invoices.length ? (
+              <div className={styles.table}>
+                {invoices.map((invoice) => (
+                  <div className={styles.tableRow} key={invoice.id}>
+                    <span>
+                      {invoice.invoiceNumber ||
+                        `Invoice ${invoice.id.slice(0, 6)}`}
+                      <small>{invoice.customerName || "Customer"}</small>
+                    </span>
+                    <span className={styles.badge}>{invoice.status}</span>
+                    <b>{formatMoney(invoice.balance ?? invoice.amount)}</b>
+                    <small>
+                      {new Date(invoice.dueDate).toLocaleDateString()}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.empty}>
+                <b>No invoices yet</b>
+                <p>
+                  Invoices will appear here when your workspace has billing
+                  activity.
+                </p>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
 }

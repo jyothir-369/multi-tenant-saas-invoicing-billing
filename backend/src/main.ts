@@ -17,7 +17,7 @@ class JsonLogger implements LoggerService {
 
 async function bootstrap() {
   validateProductionEnvironment();
-  const app = await NestFactory.create(AppModule, { logger: process.env.LOG_FORMAT === 'json' ? new JsonLogger() : new Logger() });
+  const app = await NestFactory.create(AppModule, { rawBody: true, logger: process.env.LOG_FORMAT === 'json' ? new JsonLogger() : new Logger() });
   const configuredOrigins = (process.env.FRONTEND_URL || '')
     .split(',')
     .map((origin) => origin.trim())
