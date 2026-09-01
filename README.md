@@ -12,6 +12,7 @@ Ledgerly is a tenant-isolated SaaS billing workspace for small businesses. It br
 - Stripe payment-intent and refund adapters, signed webhook handling, and idempotent provider payment IDs
 - Outbox-driven PDF/email notification workflows and a separate worker process
 - Redis-backed rate limiting with an in-memory fallback, health checks, validation, and structured logging
+- Tenant-scoped analytics, persisted activity timeline, notification read state, and automation readiness status
 
 Stripe confirmation, production deployment, and email delivery depend on external configuration; they are not claimed as live services in this repository.
 
@@ -95,7 +96,7 @@ For production, run `npm --workspace backend exec prisma migrate deploy` against
 
 Public: `POST /auth/register`, `POST /auth/login`, `GET /health`, `POST /webhooks/stripe` (signature required).
 
-Protected: `/auth/profile`, `/customers`, `/invoices`, `/dashboard/balance`, `/payments`, `/notifications`, `/tenants/me`, and OWNER-only `/users` and tenant updates. All protected resources require `Authorization: Bearer <token>`.
+Protected: `/auth/profile`, `/customers`, `/invoices`, `/dashboard/balance`, `/analytics`, `/payments`, `/notifications`, `/tenants/me`, and OWNER-only `/users` and tenant updates. `/notifications/automation/status` reports whether Redis, SMTP, and workers are configured; it does not claim that external delivery is available. All protected resources require `Authorization: Bearer <token>`.
 
 ## Demo walkthrough
 

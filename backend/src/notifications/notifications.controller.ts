@@ -44,6 +44,9 @@ export class NotificationsController {
   @Get('activity')
   activity() { return this.notificationsService.activity(); }
 
+  @Get('automation/status')
+  automationStatus() { return this.notificationsService.getAutomationStatus(); }
+
   /**
    * Get queue statistics.
    */

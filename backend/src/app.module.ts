@@ -15,11 +15,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
-<<<<<<< HEAD
 import { AnalyticsModule } from './analytics/analytics.module';
-=======
 import { HealthModule } from './health/health.module';
->>>>>>> origin/main
 
 @Module({
   imports: [
@@ -28,11 +25,8 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     TenantsModule,
     UsersModule,
-<<<<<<< HEAD
     AnalyticsModule,
-=======
     HealthModule,
->>>>>>> origin/main
     CustomersModule,
     InvoicesModule,
     PaymentsModule,

@@ -47,6 +47,24 @@ export class NotificationsService {
     return this.prisma.outboxEvent.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, type: true, payload: true, createdAt: true } });
   }
 
+  async getAutomationStatus() {
+    const tenantId = this.tenant();
+    const [recurring, overdue, outbox] = await Promise.all([
+      this.prisma.invoice.count({ where: { tenantId, recurrenceRule: { not: null }, status: { not: 'VOID' } } }),
+      this.prisma.invoice.count({ where: { tenantId, status: 'OVERDUE' } }),
+      this.prisma.outboxEvent.count({ where: { tenantId, processedAt: null } }),
+    ]);
+    return {
+      workersEnabled: process.env.ENABLE_BACKGROUND_WORKERS === 'true',
+      redisConfigured: Boolean(process.env.REDIS_URL || process.env.REDIS_HOST),
+      smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM),
+      recurringInvoices: recurring,
+      overdueInvoices: overdue,
+      pendingOutboxEvents: outbox,
+      note: process.env.ENABLE_BACKGROUND_WORKERS === 'true' ? 'Background processing is enabled.' : 'Enable workers and provide Redis to run scheduled automation.',
+    };
+  }
+
   /**
    * Create an outbox event.
    * This should be called within a transaction to ensure atomicity.
