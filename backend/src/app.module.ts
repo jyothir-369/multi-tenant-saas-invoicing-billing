@@ -15,6 +15,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+    AnalyticsModule,
     HealthModule,
     CustomersModule,
     InvoicesModule,

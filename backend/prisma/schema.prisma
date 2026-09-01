@@ -7,30 +7,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
 model Tenant {
-  id        String        @id @default(uuid())
-  name      String
-  plan      String        @default("free")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  customers Customer[]
-  invoices  Invoice[]
-  events    OutboxEvent[]
-  payments  Payment[]
-  users     User[]
+  id                String             @id @default(uuid())
+  name              String
+  plan              String             @default("free")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  users             User[]
+  customers         Customer[]
+  invoices          Invoice[]
+  payments          Payment[]
+  events            OutboxEvent[]
+  notificationReads NotificationRead[]
 
   @@map("tenants")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  tenantId     String   @map("tenant_id")
-  email        String
-  passwordHash String   @map("password_hash")
-  role         UserRole @default(STAFF)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  email             String
+  passwordHash      String             @map("password_hash")
+  role              UserRole           @default(STAFF)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notificationReads NotificationRead[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -61,7 +76,7 @@ model Invoice {
   lastGeneratedAt DateTime?     @map("last_generated_at")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  customer        Customer      @relation(fields: [customerId], references: [id])
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payments        Payment[]
 
@@ -78,7 +93,7 @@ model Payment {
   amount            Int
   status            String
   createdAt         DateTime @default(now())
-  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status, createdAt])
@@ -102,15 +117,16 @@ model OutboxEvent {
   @@map("outbox_events")
 }
 
-enum UserRole {
-  OWNER
-  STAFF
-}
+model NotificationRead {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  userId   String   @map("user_id")
+  eventId  String   @map("event_id")
+  readAt   DateTime @default(now()) @map("read_at")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  PAID
-  OVERDUE
-  VOID
+  @@unique([userId, eventId])
+  @@index([tenantId, userId])
+  @@map("notification_reads")
 }
