@@ -137,7 +137,7 @@ export class InvoicesService {
   async findAll(status?: InvoiceStatus): Promise<InvoiceWithDetails[]> {
     const tenantId = this.getTenantId();
 
-    const where: any = {};
+    const where: any = { tenantId };
     if (status) {
       where.status = status;
     }

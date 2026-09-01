@@ -74,7 +74,7 @@ export class NotificationsController {
     @CurrentUser() user?: CurrentUserData,
   ): Promise<{ filePath: string; fileName: string; size: number }> {
     return this.notificationsService.generateInvoicePdf(
-      user?.tenantId || 'default',
+      user!.tenantId,
       invoiceId,
       invoiceNumber,
     );
@@ -98,7 +98,7 @@ export class NotificationsController {
     @CurrentUser() user?: CurrentUserData,
   ): Promise<{ queued: boolean }> {
     await this.notificationsService.queueInvoiceEmail(
-      user?.tenantId || 'default',
+      user!.tenantId,
       body,
     );
     return { queued: true };
@@ -121,7 +121,7 @@ export class NotificationsController {
     @CurrentUser() user?: CurrentUserData,
   ): Promise<{ queued: boolean }> {
     await this.notificationsService.queueReceiptEmail(
-      user?.tenantId || 'default',
+      user!.tenantId,
       body,
     );
     return { queued: true };

@@ -12,18 +12,21 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
-    "lint": "oxlint src/ test/",
+    "start:prod": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
+    "lint": "tsc --noEmit -p tsconfig.build.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:phase9": "jest --config ./test/jest-phase9.json --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/jwt": "^10.0.0",
     "@nestjs/passport": "^10.0.0",
@@ -42,6 +45,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "stripe": "^22.6.0"
@@ -67,6 +71,7 @@
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
+    "turbo": "^2.10.12",
     "typescript": "^5.1.3"
   }
 }

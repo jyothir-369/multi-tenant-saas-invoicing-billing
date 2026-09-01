@@ -3,6 +3,7 @@ import { AuthController } from '../auth.controller';
 import { AuthService, AuthResponse } from '../auth.service';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RateLimitGuard } from '../../common/rate-limit/rate-limit.guard';
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -20,6 +21,8 @@ describe('AuthController', () => {
       providers: [{ provide: AuthService, useValue: mockAuthService }],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RateLimitGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -1,15 +1,27 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/tenant-context.service';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
   constructor(private readonly tenantContext: TenantContextService) {
     super();
   }
 
   async onModuleInit() {
-    await this.$connect();
+    const timeoutMs = Number(process.env.DATABASE_CONNECT_TIMEOUT_MS || 10000);
+    try {
+      await Promise.race([
+        this.$connect(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`database connection timed out after ${timeoutMs}ms`)), timeoutMs)),
+      ]);
+      this.logger.log('Database connection established');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown database connection error';
+      this.logger.error(`Database connection failed: ${message}`);
+      this.logger.warn('Application will start without a database connection; health checks will report the database as down.');
+    }
   }
 
   async onModuleDestroy() {
@@ -20,15 +32,30 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const tenantId = this.tenantContext.getTenantId();
     
     if (!tenantId) {
-      return this;
+      throw new ForbiddenException('Tenant context not available');
     }
 
     return this.$extends({
       query: {
         $allModels: {
           async $allOperations({ model, operation, args, query }: { model: string; operation: string; args: any; query: Function }) {
-            if (['findFirst', 'findMany', 'count', 'update', 'updateMany', 'delete', 'deleteMany'].includes(operation)) {
+            // Tenant is the root record and is accessed by its authenticated tenant id.
+            if (model === 'Tenant') {
+              return query(args);
+            }
+            if (['findUnique', 'findFirst', 'findMany', 'count', 'aggregate', 'groupBy', 'update', 'updateMany', 'delete', 'deleteMany', 'upsert'].includes(operation)) {
               args.where = { ...args.where, tenantId };
+              if (['update', 'updateMany', 'upsert'].includes(operation) && args.data) {
+                if (Array.isArray(args.data)) {
+                  args.data = args.data.map((item: any) => {
+                    const { tenantId: _ignored, ...safeData } = item;
+                    return safeData;
+                  });
+                } else {
+                  const { tenantId: _ignored, ...safeData } = args.data;
+                  args.data = safeData;
+                }
+              }
             } else if (['create', 'createMany'].includes(operation)) {
               if (Array.isArray(args.data)) {
                 args.data = args.data.map((item: any) => ({ ...item, tenantId }));

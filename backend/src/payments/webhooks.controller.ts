@@ -8,6 +8,7 @@
   HttpStatus,
   Logger,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { PaymentsService } from './payments.service';
@@ -18,6 +19,7 @@ interface RawBodyRequest extends Request {
 }
 
 @Controller('webhooks')
+@UseGuards(WebhookRateLimitGuard)
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
@@ -42,12 +44,6 @@ export class WebhooksController {
     @Body() body: Record<string, unknown>,
   ): Promise<{ received: boolean; processed?: boolean; error?: string }> {
     this.logger.log(`Received Stripe webhook: ${JSON.stringify(body?.type || 'unknown')}`);
-
-    // Apply rate limiting
-    const rateLimitGuard = new WebhookRateLimitGuard();
-    if (!rateLimitGuard.canActivate({ switchToHttp: () => ({ getRequest: () => request }) } as any)) {
-      throw new BadRequestException('Rate limit exceeded');
-    }
 
     // Get raw body for signature verification
     const rawBody = request.rawBody;
@@ -179,18 +175,23 @@ export class WebhooksController {
     const paymentIntent = charge.payment_intent as string | undefined;
     const amountRefunded = charge.amount_refunded as number | undefined;
     const id = charge.id as string;
+    const metadata = charge.metadata as Record<string, string> | undefined;
 
     if (!paymentIntent) {
       this.logger.warn(`Charge ${id} missing payment_intent reference`);
       return;
     }
 
-    this.logger.log(
-      `Processing refund for payment intent: ${paymentIntent}, amount: ${amountRefunded}`,
-    );
+    if (!metadata?.tenantId || !amountRefunded) {
+      this.logger.warn(`Refund ${id} lacks tenant metadata or a positive refunded amount; local reconciliation skipped`);
+      return;
+    }
 
-    // Refunds initiated from Stripe dashboard need to be matched with our payments
-    // This would require looking up payment by providerPaymentId
-    // For now, we log it - in production, you'd have a processRefundByProviderId method
+    const reconciled = await this.paymentsService.reconcileProviderRefund(
+      paymentIntent,
+      amountRefunded,
+      metadata.tenantId,
+    );
+    this.logger.log(`Refund ${id} reconciliation ${reconciled ? 'completed' : 'skipped'}`);
   }
 }

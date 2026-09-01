@@ -228,7 +228,10 @@ export class NotificationsService {
     }>;
   }> {
     const tenantId = this.tenantContext.getTenantId();
-    const where = tenantId ? { tenantId } : {};
+    if (!tenantId) {
+      throw new Error('Tenant context not available');
+    }
+    const where = { tenantId };
 
     const [pending, processed, recentEvents] = await Promise.all([
       this.prisma.outboxEvent.count({ where: { ...where, processedAt: null } }),

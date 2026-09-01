@@ -1,0 +1,351 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import styles from "../../page.module.css";
+import { api, formatMoney } from "../../../lib/api";
+type Payment = {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  customerName?: string;
+  invoiceNumber?: string;
+};
+type Stats = {
+  totalPayments: number;
+  pendingAmount: number;
+  completedAmount: number;
+  refundedAmount: number;
+};
+type Invoice = {
+  id: string;
+  invoiceNumber?: string;
+  customerName?: string;
+  customerEmail?: string;
+  amount: number;
+  balance?: number;
+  status: string;
+  dueDate: string;
+};
+const statuses = [
+  "ALL",
+  "PENDING",
+  "COMPLETED",
+  "FAILED",
+  "REFUNDED",
+  "PARTIALLY_REFUNDED",
+];
+export default function PaymentsPage() {
+  const [p, setP] = useState<Payment[]>([]),
+    [s, setS] = useState<Stats>(),
+    [invoices, setInvoices] = useState<Invoice[]>([]),
+    [filter, setFilter] = useState("ALL"),
+    [query, setQuery] = useState(""),
+    [selected, setSelected] = useState<Payment | null>(null),
+    [refundAmount, setRefundAmount] = useState(""),
+    [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
+    [clientSecret, setClientSecret] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [a, b, c] = await Promise.all([
+        api<Payment[]>("/payments"),
+        api<Stats>("/payments/stats/summary"),
+        api<Invoice[]>("/invoices"),
+      ]);
+      setP(a);
+      setS(b);
+      setInvoices(c);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load payments.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  async function intent(i: Invoice) {
+    setBusy(true);
+    try {
+      const r = await api<{ clientSecret: string; status: string }>(
+        "/payments/intent",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            invoiceId: i.id,
+            amount: i.balance ?? i.amount,
+            customerEmail: i.customerEmail,
+          }),
+        },
+      );
+      setClientSecret(r.clientSecret);
+      setMessage(`Stripe payment intent created (${r.status}).`);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Unable to create payment intent.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function refund() {
+    if (!selected || !window.confirm("Refund this payment?")) return;
+    setBusy(true);
+    try {
+      const r = await api<{ success: boolean; error?: string }>(
+        `/payments/${selected.id}/refund`,
+        {
+          method: "POST",
+          body: JSON.stringify(
+            refundAmount ? { amount: Number(refundAmount) } : {},
+          ),
+        },
+      );
+      if (!r.success) throw new Error(r.error || "Refund failed.");
+      setMessage("Refund submitted.");
+      setSelected(null);
+      void load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refund failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function notify(kind: "pdf" | "receipt" | "invoice", payment: Payment) {
+    const i = invoices.find((x) => x.id === payment.invoiceId);
+    if (!i) {
+      setError("Invoice details unavailable.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (kind === "pdf")
+        await api(`/notifications/pdf/invoice/${i.id}`, { method: "POST" });
+      else
+        await api(`/notifications/email/${kind}`, {
+          method: "POST",
+          body: JSON.stringify(
+            kind === "receipt"
+              ? {
+                  paymentId: payment.id,
+                  customerName: payment.customerName || i.customerName || "",
+                  customerEmail: i.customerEmail || "",
+                  amount: payment.amount,
+                  paidAt: payment.createdAt,
+                  invoiceNumber: payment.invoiceNumber || i.invoiceNumber,
+                }
+              : {
+                  invoiceId: i.id,
+                  customerName: i.customerName || "",
+                  customerEmail: i.customerEmail || "",
+                  invoiceNumber: i.invoiceNumber || i.id,
+                  amount: i.amount,
+                  dueDate: i.dueDate,
+                },
+          ),
+        });
+      setMessage(
+        kind === "pdf"
+          ? "PDF generation started."
+          : kind === "receipt"
+            ? "Receipt email queued."
+            : "Invoice email queued.",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to start operation.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const shown = p.filter(
+    (x) =>
+      (filter === "ALL" || x.status === filter) &&
+      `${x.invoiceNumber || ""} ${x.customerName || ""} ${x.status}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
+  return (
+    <div className={styles.main}>
+      <div className={styles.heading}>
+        <div>
+          <span className={styles.kicker}>LEDGERLY WORKSPACE</span>
+          <h1>
+            Payments<span className={styles.dot}>.</span>
+          </h1>
+          <p>Monitor payment activity and automate receipts.</p>
+        </div>
+      </div>
+      {message && (
+        <div className={styles.alert}>
+          <span>✓</span>
+          <p>{message}</p>
+        </div>
+      )}
+      {error && (
+        <div className={styles.alert}>
+          <span>!</span>
+          <div>
+            <p>{error}</p>
+            <button onClick={() => void load()}>Try again</button>
+          </div>
+        </div>
+      )}
+      <section className={styles.kpis}>
+        {[
+          ["Payments", s?.totalPayments || 0],
+          ["Collected", formatMoney(s?.completedAmount || 0)],
+          ["Pending", formatMoney(s?.pendingAmount || 0)],
+          ["Refunded", formatMoney(s?.refundedAmount || 0)],
+        ].map(([l, v]) => (
+          <article className={styles.kpi} key={String(l)}>
+            <span>{l}</span>
+            <strong>{v}</strong>
+            <small>Current tenant workspace</small>
+          </article>
+        ))}
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Payment activity</h2>
+            <p>
+              {shown.length} payment{shown.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <input
+            aria-label="Search payments"
+            placeholder="Search payments"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select
+            aria-label="Filter payment status"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            {statuses.map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </div>
+        {loading ? (
+          <div className={styles.empty}>Loading payments…</div>
+        ) : shown.length ? (
+          <div className={styles.table}>
+            {shown.map((x) => (
+              <div className={styles.tableRow} key={x.id}>
+                <span>
+                  <button onClick={() => setSelected(x)}>
+                    {x.invoiceNumber || `Payment ${x.id.slice(0, 6)}`}
+                  </button>
+                  <small>{x.customerName || "Customer"}</small>
+                </span>
+                <span className={styles.badge}>
+                  {x.status.replaceAll("_", " ")}
+                </span>
+                <b>{formatMoney(x.amount)}</b>
+                <small>{new Date(x.createdAt).toLocaleDateString()}</small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.empty}>
+            <b>No payments found</b>
+            <p>Completed Stripe payments will appear here.</p>
+          </div>
+        )}
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Collect payment</h2>
+            <p>Generate an intent for a sent or overdue invoice.</p>
+          </div>
+        </div>
+        {invoices
+          .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
+          .map((i) => (
+            <div className={styles.customerRow} key={i.id}>
+              <span>
+                <b>{i.invoiceNumber || i.id.slice(0, 8)}</b>
+                <small>
+                  {i.customerName || "Customer"} ·{" "}
+                  {formatMoney(i.balance ?? i.amount)}
+                </small>
+              </span>
+              <button disabled={busy} onClick={() => void intent(i)}>
+                Create Stripe intent
+              </button>
+            </div>
+          ))}
+        {clientSecret && (
+          <p>
+            Intent created. Stripe.js/Elements is not installed in this
+            frontend, so confirmation requires the existing Stripe client
+            integration or dependency configuration.
+          </p>
+        )}
+      </section>
+      {selected && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h2>Payment details</h2>
+              <p>
+                {selected.invoiceNumber || selected.invoiceId} ·{" "}
+                {selected.status}
+              </p>
+            </div>
+            <button onClick={() => setSelected(null)}>Close</button>
+          </div>
+          <p>
+            Amount: <b>{formatMoney(selected.amount)}</b> · Created:{" "}
+            {new Date(selected.createdAt).toLocaleString()}
+          </p>
+          <div className={styles.customerForm}>
+            {selected.status === "COMPLETED" && (
+              <>
+                <input
+                  aria-label="Refund amount in cents"
+                  type="number"
+                  min="1"
+                  max={selected.amount}
+                  placeholder="Refund amount (cents, optional)"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                />
+                <button disabled={busy} onClick={() => void refund()}>
+                  Refund
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => void notify("receipt", selected)}
+                >
+                  Queue receipt
+                </button>
+              </>
+            )}
+            <button
+              disabled={busy}
+              onClick={() => void notify("pdf", selected)}
+            >
+              Generate PDF
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => void notify("invoice", selected)}
+            >
+              Queue invoice email
+            </button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

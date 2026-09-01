@@ -436,6 +436,28 @@ export class PaymentsService {
     return refund;
   }
 
+  async reconcileProviderRefund(
+    providerPaymentId: string,
+    refundedAmount: number,
+    tenantId: string,
+  ): Promise<boolean> {
+    if (!providerPaymentId || refundedAmount <= 0 || !tenantId) return false;
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerPaymentId, tenantId, status: { in: [PAYMENT_STATUS.COMPLETED, PAYMENT_STATUS.PARTIALLY_REFUNDED] } },
+    });
+    if (!payment) return false;
+
+    const status = refundedAmount >= payment.amount
+      ? PAYMENT_STATUS.REFUNDED
+      : PAYMENT_STATUS.PARTIALLY_REFUNDED;
+    await this.prisma.payment.update({ where: { id: payment.id }, data: { status } });
+    if (status === PAYMENT_STATUS.REFUNDED) {
+      await this.prisma.invoice.update({ where: { id: payment.invoiceId }, data: { status: InvoiceStatus.SENT } });
+    }
+    return true;
+  }
+
   /**
    * Get payment statistics for the tenant.
    */

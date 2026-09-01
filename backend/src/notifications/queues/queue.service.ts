@@ -58,6 +58,12 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // Queue clients are created lazily by the web process. This prevents a
+    // Redis outage from flooding the event loop before HTTP is responsive.
+    if (process.env.ENABLE_BACKGROUND_WORKERS !== 'true') {
+      this.logger.log('Queue clients deferred for web process');
+      return;
+    }
     const redisConfig = this.getRedisConfig();
     
     // Initialize queues
@@ -67,7 +73,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.recurringQueue = new Queue(QUEUE_NAMES.RECURRING, { connection: redisConfig });
 
     // Initialize queue event listeners
-    this.setupQueueEvents();
+    if (process.env.ENABLE_BACKGROUND_WORKERS === 'true') this.setupQueueEvents();
 
     this.logger.log('Queue service initialized');
   }
@@ -77,22 +83,21 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getRedisConfig(): any {
+    if (process.env.REDIS_URL) {
+      return { url: process.env.REDIS_URL, maxRetriesPerRequest: null, connectTimeout: 2000, enableOfflineQueue: false };
+    }
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
-    
-    // For development without Redis, use mock behavior
-    if (process.env.NODE_ENV === 'development' && !process.env.REDIS_URL) {
-      return {
-        host: 'localhost',
-        port: 6379,
-        maxRetriesPerRequest: null,
-      };
-    }
-
+    const password = process.env.REDIS_PASSWORD;
+    const tlsEnabled = process.env.REDIS_TLS === 'true';
     return {
       host,
       port,
+      ...(password ? { password } : {}),
+      ...(tlsEnabled ? { tls: {} } : {}),
       maxRetriesPerRequest: null,
+      connectTimeout: 2000,
+      enableOfflineQueue: false,
     };
   }
 

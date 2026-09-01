@@ -1,18 +1,25 @@
-﻿import { Module } from '@nestjs/common';
+﻿import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
+
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
+import { AuthModule } from './auth/auth.module';
 import { CustomersModule } from './customers/customers.module';
 import { InvoicesModule } from './billing/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+<<<<<<< HEAD
 import { AnalyticsModule } from './analytics/analytics.module';
+=======
+import { HealthModule } from './health/health.module';
+>>>>>>> origin/main
 
 @Module({
   imports: [
@@ -21,11 +28,16 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+<<<<<<< HEAD
     AnalyticsModule,
+=======
+    HealthModule,
+>>>>>>> origin/main
     CustomersModule,
     InvoicesModule,
     PaymentsModule,
     NotificationsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

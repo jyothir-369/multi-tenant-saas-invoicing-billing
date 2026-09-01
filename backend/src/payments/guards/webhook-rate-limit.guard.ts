@@ -24,12 +24,9 @@ export class WebhookRateLimitGuard implements CanActivate {
     // Extract tenant identifier from webhook body or header
     const tenantId = this.extractTenantId(request);
     
-    if (!tenantId) {
-      // Allow without rate limiting if tenant cannot be determined
-      return true;
-    }
-
-    const key = `${ip}:${tenantId}`;
+    // Always rate-limit by source IP. Stripe payload metadata is untrusted until
+    // signature verification, so it must never be required for abuse protection.
+    const key = `${ip}:${tenantId || 'unknown'}`;
     const now = Date.now();
     const record = this.requestCounts.get(key);
 

@@ -60,6 +60,9 @@ export class StripePaymentProvider {
   constructor() {
     const secretKey = process.env.STRIPE_SECRET_KEY;
 
+    if (!secretKey && process.env.NODE_ENV === 'production') {
+      throw new Error('STRIPE_SECRET_KEY is required in production');
+    }
     if (!secretKey) {
       this.logger.warn(
         'STRIPE_SECRET_KEY not configured. Using test mode with mock responses.',

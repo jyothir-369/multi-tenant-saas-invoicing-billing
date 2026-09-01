@@ -1,5 +1,6 @@
 ﻿import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
+import { readFile } from 'node:fs/promises';
 import { QueueService, JOB_NAMES, QueueJobData } from '../queues';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantContextService } from '../../common/tenant-context.service';
@@ -29,6 +30,11 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
     // Skip worker initialization in test environment
     if (process.env.NODE_ENV === 'test') {
       this.logger.log('Skipping worker initialization in test environment');
+      return;
+    }
+
+    if (process.env.ENABLE_BACKGROUND_WORKERS !== 'true') {
+      this.logger.log('Background workers disabled for web process; run start:worker separately');
       return;
     }
 
@@ -79,13 +85,22 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getRedisConfig(): any {
+    if (process.env.REDIS_URL) {
+      return { url: process.env.REDIS_URL, maxRetriesPerRequest: null, connectTimeout: 2000, enableOfflineQueue: false };
+    }
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+    const password = process.env.REDIS_PASSWORD;
+    const tlsEnabled = process.env.REDIS_TLS === 'true';
 
     return {
       host,
       port,
+      ...(password ? { password } : {}),
+      ...(tlsEnabled ? { tls: {} } : {}),
       maxRetriesPerRequest: null,
+      connectTimeout: 2000,
+      enableOfflineQueue: false,
     };
   }
 
@@ -132,7 +147,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
             amount: payload.amount,
             dueDate: payload.dueDate,
             paymentLink: payload.paymentLink,
-            pdfBuffer: payload.pdfBuffer,
+            pdfBuffer: payload.pdfBuffer || (payload.pdfPath ? await readFile(payload.pdfPath) : undefined),
           });
           break;
 
@@ -182,7 +197,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
         case JOB_NAMES.GENERATE_INVOICE_PDF:
           // Fetch invoice data from database
           const invoice = await this.prisma.invoice.findFirst({
-            where: { id: payload.invoiceId },
+      where: { id: payload.invoiceId, tenantId },
             include: {
               customer: true,
               tenant: true,
@@ -248,8 +263,14 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Processing outbox job for tenant ${tenantId}`);
 
     // Process unprocessed events
-    const processed = await this.outboxProcessor.processUnprocessedEvents(50);
+    const processed = await this.outboxProcessor.processUnprocessedEvents(50, tenantId);
     this.logger.log(`Processed ${processed} outbox events`);
+    // Throwing makes BullMQ apply its configured exponential retry policy.
+    // A successful empty batch is still a successful job.
+    if (processed === 0) {
+      const pending = await this.prisma.outboxEvent.count({ where: { processedAt: null, tenantId } });
+      if (pending > 0) throw new Error(`Failed to process outbox events for tenant ${tenantId}`);
+    }
   }
 
   /**

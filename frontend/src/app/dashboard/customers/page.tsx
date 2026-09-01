@@ -1,0 +1,220 @@
+"use client";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import styles from "../../page.module.css";
+import { api, formatMoney } from "../../../lib/api";
+type Customer = {
+  id: string;
+  name: string;
+  email: string;
+  balance: number;
+  isArchived: boolean;
+};
+export default function CustomersPage() {
+  const [items, setItems] = useState<Customer[]>([]),
+    [archived, setArchived] = useState(false),
+    [query, setQuery] = useState(""),
+    [name, setName] = useState(""),
+    [email, setEmail] = useState(""),
+    [editing, setEditing] = useState<Customer | null>(null),
+    [loading, setLoading] = useState(true),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setItems(
+        await api<Customer[]>(
+          `/customers${archived ? "?includeArchived=true" : ""}`,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load customers.");
+    } finally {
+      setLoading(false);
+    }
+  }, [archived]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api(editing ? `/customers/${editing.id}` : "/customers", {
+        method: editing ? "PUT" : "POST",
+        body: JSON.stringify({ name, email }),
+      });
+      setName("");
+      setEmail("");
+      setEditing(null);
+      setMessage(editing ? "Customer updated." : "Customer created.");
+      void load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to save customer.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function mutate(
+    c: Customer,
+    action: "archive" | "unarchive" | "delete",
+  ) {
+    try {
+      await api(
+        `/customers/${c.id}${action === "delete" ? "" : `/${action}`}`,
+        { method: action === "delete" ? "DELETE" : "POST" },
+      );
+      setMessage(
+        action === "delete"
+          ? "Customer deleted."
+          : `Customer ${action === "archive" ? "archived" : "restored"}.`,
+      );
+      void load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to update customer.");
+    }
+  }
+  const shown = items.filter((c) =>
+    `${c.name} ${c.email}`.toLowerCase().includes(query.toLowerCase()),
+  );
+  return (
+    <div className={styles.main}>
+      <div className={styles.heading}>
+        <div>
+          <span className={styles.kicker}>LEDGERLY WORKSPACE</span>
+          <h1>
+            Customers<span className={styles.dot}>.</span>
+          </h1>
+          <p>Manage customers belonging to your workspace.</p>
+        </div>
+      </div>
+      {message && (
+        <div className={styles.alert}>
+          <span>✓</span>
+          <p>{message}</p>
+        </div>
+      )}
+      {error && (
+        <div className={styles.alert}>
+          <span>!</span>
+          <div>
+            <p>{error}</p>
+            <button onClick={() => void load()}>Try again</button>
+          </div>
+        </div>
+      )}
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>{editing ? "Edit customer" : "Add customer"}</h2>
+            <p>Records are scoped to your authenticated tenant.</p>
+          </div>
+        </div>
+        <form onSubmit={save} className={styles.customerForm}>
+          <input
+            aria-label="Customer name"
+            placeholder="Customer name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={100}
+          />
+          <input
+            aria-label="Customer email"
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <button className={styles.primaryButton} disabled={saving}>
+            {saving ? "Saving…" : editing ? "Save changes" : "Add customer"}
+          </button>
+          {editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setName("");
+                setEmail("");
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </form>
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>{archived ? "Archived customers" : "Customer list"}</h2>
+            <p>
+              {shown.length} customer{shown.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <input
+            aria-label="Search customers"
+            placeholder="Search customers"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button onClick={() => setArchived((v) => !v)}>
+            {archived ? "View active" : "View archived"}
+          </button>
+        </div>
+        {loading ? (
+          <div className={styles.empty}>Loading customers…</div>
+        ) : shown.length ? (
+          <div className={styles.customerList}>
+            {shown.map((c) => (
+              <div className={styles.customerRow} key={c.id}>
+                <span className={styles.customerAvatar}>
+                  {c.name.charAt(0).toUpperCase()}
+                </span>
+                <span>
+                  <b>{c.name}</b>
+                  <small>{c.email}</small>
+                </span>
+                <strong>{formatMoney(c.balance)}</strong>
+                <button
+                  onClick={() => {
+                    setEditing(c);
+                    setName(c.name);
+                    setEmail(c.email);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() =>
+                    void mutate(c, c.isArchived ? "unarchive" : "archive")
+                  }
+                >
+                  {c.isArchived ? "Unarchive" : "Archive"}
+                </button>
+                {c.isArchived && (
+                  <button onClick={() => void mutate(c, "delete")}>
+                    Delete
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.empty}>
+            <b>No customers found</b>
+            <p>
+              {query
+                ? "Try a different search."
+                : "Create a customer above to get started."}
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
