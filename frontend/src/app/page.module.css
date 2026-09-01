@@ -22,3 +22,28 @@
 .sidebar nav a { min-height:44px; }
 .panelHeader input, .panelHeader select { border:1px solid var(--line); border-radius:8px; padding:9px 11px; color:var(--ink); background:#fff; }
 @media(max-width:650px) { .sidebar { display:flex; position:fixed; z-index:20; inset:0 auto 0 0; width:250px; transform:translateX(-102%); transition:transform .18s ease; box-shadow:12px 0 30px #20352b18; }.sidebarOpen { transform:translateX(0); }.topbar { height:64px;padding:0 18px; position:sticky; top:0; z-index:10; }.mobileBrand { display:grid;place-items:center;border:0;background:var(--green);color:#fff;border-radius:7px;width:40px;height:40px;font-weight:700;cursor:pointer; }.breadcrumb,.workspace span:not(.avatar) { display:none; }.topActions { gap:7px; }.main { padding:28px 16px 42px; }.heading { display:block;margin-bottom:25px; }.heading .primaryButton { margin-top:18px; }.kpis { gap:9px; }.kpi { padding:15px; }.kpi strong { font-size:18px; }.kpi small { font-size:10px; }.toolbar { justify-content:stretch; }.search { flex:1;width:auto; }.toolbar select { width:115px; }.panel { padding:17px 14px; overflow:hidden; }.panelHeader { flex-wrap:wrap; gap:10px; }.panelHeader input,.panelHeader select { max-width:100%; min-height:38px; }.tableRow { grid-template-columns:minmax(105px,1fr) 68px 70px; }.tableRow>small { display:none; }.customerRow { flex-wrap:wrap; }.customerRow button { min-height:40px; }.authCard { padding:30px 24px; }.authCard .brand { padding-bottom:34px; } }
+
+/* Portfolio polish: shared surface, type, and interaction language. */
+.app { --surface-shadow: 0 10px 30px rgba(25, 53, 42, .05); }
+.app .sidebar { background: #f4f8f5; padding-top: 24px; }
+.app .brand { letter-spacing: -.8px; }
+.app .sidebar nav a { transition: background .15s ease, color .15s ease, transform .15s ease; }
+.app .sidebar nav a:hover { transform: translateX(2px); }
+.app .topbar { box-shadow: 0 1px 0 rgba(25, 53, 42, .02); }
+.app .main { padding-top: 48px; }
+.app .kpis { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+.app .kpi { box-shadow: var(--surface-shadow); transition: transform .15s ease, box-shadow .15s ease; }
+.app .kpi:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(25, 53, 42, .09); }
+.app .panel { box-shadow: var(--surface-shadow); }
+.app .tableRow { min-height: 58px; }
+.app .tableRow > span:first-child button { color: var(--ink); font-weight: 700; text-align: left; background: transparent; border: 0; cursor: pointer; padding: 4px 0; }
+.app .tableRow > span:first-child button:hover { color: var(--green); }
+.app .badge { letter-spacing: .2px; }
+.app .primaryButton, .app .customerForm button { min-height: 42px; }
+.authPage { background: #eef6f1; }
+.authGlow { opacity: .7; }
+.authCard { box-shadow: 0 24px 70px rgba(26, 75, 52, .10); }
+.authCard .primaryButton { min-height: 46px; font-size: 13px; }
+.authCard input { min-height: 46px; transition: border-color .15s ease, box-shadow .15s ease; }
+@media (prefers-reduced-motion: reduce) { .app .sidebar nav a, .app .kpi, .authCard input { transition: none; } }
+@media (max-width: 650px) { .app .main { padding-top: 28px; } .app .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app .kpi { min-width: 0; } }
