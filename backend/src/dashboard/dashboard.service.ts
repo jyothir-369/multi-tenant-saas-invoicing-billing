@@ -10,28 +10,95 @@ export interface DashboardBalance {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService, private readonly context: TenantContextService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly context: TenantContextService,
+  ) {}
 
   async getBalance(): Promise<DashboardBalance> {
     const tenantId = this.context.getTenantId();
-    if (!tenantId) throw new ForbiddenException('Tenant context not available');
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const rows = await this.prisma.$queryRaw<Array<{ outstanding: bigint | number; overdue: bigint | number; paidThisMonth: bigint | number }>>`
-      SELECT
-        COALESCE(SUM(CASE WHEN i.status = 'SENT' AND i.due_date >= NOW() THEN i.amount - COALESCE(p.paid, 0) ELSE 0 END), 0) AS outstanding,
-        COALESCE(SUM(CASE WHEN (i.status = 'OVERDUE' OR (i.status = 'SENT' AND i.due_date < NOW())) THEN i.amount - COALESCE(p.paid, 0) ELSE 0 END), 0) AS overdue,
-        COALESCE((SELECT SUM(amount) FROM payments WHERE tenant_id = ${tenantId} AND status = 'COMPLETED' AND created_at >= ${startOfMonth}), 0) AS "paidThisMonth"
-      FROM invoices i
-      LEFT JOIN (
-        SELECT invoice_id, SUM(amount) AS paid FROM payments
-        WHERE tenant_id = ${tenantId} AND status = 'COMPLETED'
-        GROUP BY invoice_id
-      ) p ON p.invoice_id = i.id
-      WHERE i.tenant_id = ${tenantId} AND i.status IN ('SENT', 'OVERDUE')
-    `;
-    const row = rows[0] ?? { outstanding: 0, overdue: 0, paidThisMonth: 0 };
-    return { outstanding: Number(row.outstanding), overdue: Number(row.overdue), paidThisMonth: Number(row.paidThisMonth) };
+
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context not available');
+    }
+
+    const now = new Date();
+
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+    );
+
+    const [invoices, payments] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: {
+          tenantId,
+          status: {
+            in: ['SENT', 'OVERDUE'],
+          },
+        },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          dueDate: true,
+          payments: {
+            where: {
+              tenantId,
+              status: 'COMPLETED',
+            },
+            select: {
+              amount: true,
+            },
+          },
+        },
+      }),
+
+      this.prisma.payment.aggregate({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: {
+            gte: startOfMonth,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    let outstanding = 0;
+    let overdue = 0;
+
+    for (const invoice of invoices) {
+      const paid = invoice.payments.reduce(
+        (total, payment) => total + payment.amount,
+        0,
+      );
+
+      const remaining = Math.max(invoice.amount - paid, 0);
+
+      if (
+        invoice.status === 'SENT' &&
+        invoice.dueDate >= now
+      ) {
+        outstanding += remaining;
+      }
+
+      if (
+        invoice.status === 'OVERDUE' ||
+        (invoice.status === 'SENT' && invoice.dueDate < now)
+      ) {
+        overdue += remaining;
+      }
+    }
+
+    return {
+      outstanding,
+      overdue,
+      paidThisMonth: payments._sum.amount ?? 0,
+    };
   }
 }
