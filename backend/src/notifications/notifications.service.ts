@@ -20,6 +20,33 @@ export class NotificationsService {
     private readonly pdfGenerator: PdfGeneratorService,
   ) {}
 
+  private tenant() {
+    const tenantId = this.tenantContext.getTenantId();
+    if (!tenantId) throw new Error('Tenant context not available');
+    return tenantId;
+  }
+
+  async list(userId: string) {
+    const tenantId = this.tenant();
+    const events = await this.prisma.outboxEvent.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' }, take: 100 });
+    const reads = await this.prisma.notificationRead.findMany({ where: { tenantId, userId }, select: { eventId: true } });
+    const readIds = new Set(reads.map(r => r.eventId));
+    return events.map(event => ({ id: event.id, type: event.type, payload: event.payload, createdAt: event.createdAt, read: readIds.has(event.id) }));
+  }
+
+  async markRead(userId: string, eventId: string) {
+    const tenantId = this.tenant();
+    const event = await this.prisma.outboxEvent.findFirst({ where: { id: eventId, tenantId } });
+    if (!event) return { read: false };
+    await this.prisma.notificationRead.upsert({ where: { userId_eventId: { userId, eventId } }, create: { tenantId, userId, eventId }, update: { readAt: new Date() } });
+    return { read: true };
+  }
+
+  async activity() {
+    const tenantId = this.tenant();
+    return this.prisma.outboxEvent.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, type: true, payload: true, createdAt: true } });
+  }
+
   /**
    * Create an outbox event.
    * This should be called within a transaction to ensure atomicity.

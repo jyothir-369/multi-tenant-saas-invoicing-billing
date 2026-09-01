@@ -35,6 +35,15 @@ export class NotificationsController {
     return this.notificationsService.getOutboxStats();
   }
 
+  @Get()
+  list(@CurrentUser() user: CurrentUserData) { return this.notificationsService.list(user.id); }
+
+  @Post(':id/read')
+  markRead(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserData) { return this.notificationsService.markRead(user.id, id); }
+
+  @Get('activity')
+  activity() { return this.notificationsService.activity(); }
+
   /**
    * Get queue statistics.
    */

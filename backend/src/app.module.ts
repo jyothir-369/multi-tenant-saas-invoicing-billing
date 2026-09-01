@@ -12,6 +12,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+    AnalyticsModule,
     CustomersModule,
     InvoicesModule,
     PaymentsModule,
