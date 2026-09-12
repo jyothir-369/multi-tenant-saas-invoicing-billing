@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import CustomerBalanceCard from "../../../../components/CustomerBalanceCard";
-import NotesPanel from "../../../../components/NotesPanel";
-import ActivityTimeline from "../../../../components/ActivityTimeline";
-import { formatMoney } from "../../../../lib/api";
+import CustomerBalanceCard from "./CustomerBalanceCard";
+
+import NotesPanel from "./NotesPanel";
+import ActivityTimeline from "./ActivityTimeline";
+import { formatMoney } from "../lib/api";
 
 export default function CustomerTabs({
   customer,
