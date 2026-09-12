@@ -24,11 +24,10 @@ export default function CustomersPage() {
     setLoading(true);
     setError("");
     try {
-      setItems(
-        await api<Customer[]>(
-          `/customers${archived ? "?includeArchived=true" : ""}`,
-        ),
-      );
+      const res = await api<
+        { data: Customer[]; total: number } | Customer[]
+      >(`/customers${archived ? "?includeArchived=true" : ""}`);
+      setItems(Array.isArray(res) ? res : res.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load customers.");
     } finally {

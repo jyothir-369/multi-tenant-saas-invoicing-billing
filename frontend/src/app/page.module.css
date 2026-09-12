@@ -231,6 +231,11 @@
   height: 28px;
   font-size: 12px;
 }
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .main {
   max-width: 1260px;

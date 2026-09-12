@@ -1,0 +1,131 @@
+.wrap {
+  position: relative;
+}
+.bellButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.bellButton:hover {
+  color: var(--green-700);
+  background: var(--green-50);
+}
+.badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #b42318;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  z-index: 60;
+  width: min(380px, 90vw);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(23, 32, 35, 0.14);
+  overflow: hidden;
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hover-surface);
+}
+.panelHead b {
+  font-size: 13px;
+  color: var(--ink);
+}
+.markAll {
+  border: 0;
+  background: none;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.markAll:hover {
+  text-decoration: underline;
+}
+.list {
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+}
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 12px 16px;
+  border-top: 1px solid var(--hover-surface);
+  cursor: pointer;
+  font-family: inherit;
+}
+.item:first-child {
+  border-top: 0;
+}
+.item:hover {
+  background: var(--green-50);
+}
+.item.unread {
+  background: rgba(35, 116, 90, 0.06);
+}
+.item b {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+.item small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+  line-height: 1.45;
+}
+.item time {
+  display: block;
+  color: var(--subtle);
+  font-size: 11px;
+  margin-top: 3px;
+}
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green-700);
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}

@@ -69,6 +69,11 @@ export class InvoicesController {
     return this.invoicesService.send(id);
   }
 
+  @Post(':id/mark-overdue')
+  async markOverdue(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceWithDetails> {
+    return this.invoicesService.markOverdue(id);
+  }
+
   @Post(':id/mark-paid')
   async markPaid(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceWithDetails> {
     return this.invoicesService.markPaid(id);

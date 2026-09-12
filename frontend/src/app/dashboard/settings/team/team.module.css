@@ -1,0 +1,48 @@
+.userRow {
+  display: grid;
+  grid-template-columns: 40px minmax(160px, 1fr) 130px 96px;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 4px;
+  border-top: 1px solid var(--hover-surface);
+}
+.userIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.userIdentity b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.userIdentity small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.roleSelect {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 12px;
+  min-height: 40px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+}
+.roleSelect:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
+}
+.roleSelect:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--hover-surface);
+}

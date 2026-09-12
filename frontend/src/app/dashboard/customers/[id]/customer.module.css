@@ -1,0 +1,154 @@
+.backRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.backLink {
+  border: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.backLink:hover {
+  text-decoration: underline;
+}
+.tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.tab {
+  border: 0;
+  background: none;
+  padding: 10px 0 12px;
+  margin-bottom: -1px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  text-decoration: none;
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tabActive {
+  color: var(--green-700);
+  border-bottom-color: var(--green-700);
+}
+.rowLink {
+  border: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  justify-self: end;
+}
+.rowLink:hover {
+  text-decoration: underline;
+}
+.noteCompose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+.textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  min-height: 84px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
+}
+.textarea::placeholder {
+  color: var(--subtle);
+}
+.noteCard {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+.noteContent {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin: 0;
+}
+.noteMeta {
+  font-size: 11.5px;
+  color: var(--subtle);
+  margin-top: 6px;
+}
+.noteActions {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+}
+.noteAction {
+  border: 0;
+  background: none;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.noteAction:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.noteAction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.noteAction.danger {
+  color: #b42318;
+}
+.summaryLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 12.5px;
+}
+.summaryLine small {
+  color: var(--muted);
+}
+.summaryLine b {
+  color: var(--ink);
+  text-align: right;
+}
+.totals {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+.grand {
+  font-size: 15px;
+}

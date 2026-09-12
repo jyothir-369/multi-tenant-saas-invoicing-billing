@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "../../page.module.css";
 import { api } from "../../../lib/api";
@@ -177,14 +178,28 @@ export default function SettingsPage() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
+            <h2>Team &amp; roles</h2>
+            <p>Manage who has access to this workspace.</p>
+          </div>
+          <Link className={styles.primaryButton} href="/dashboard/settings/team">
+            Manage team →
+          </Link>
+        </div>
+        <p>
+          Invite members, promote <b>Staff</b> to <b>Owner</b>, and remove
+          access. Owners only.
+        </p>
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
             <h2>Unavailable settings</h2>
             <p>Workflows that are not yet wired up in the frontend.</p>
           </div>
         </div>
         <p>
-          Password changes, team management, billing plan changes, and
-          notification preferences do not currently have supported frontend
-          settings workflows.
+          Password changes, billing plan changes, and notification preferences
+          do not currently have supported frontend settings workflows.
         </p>
       </section>
     </div>

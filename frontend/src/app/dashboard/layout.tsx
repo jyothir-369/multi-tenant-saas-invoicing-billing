@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import styles from "../page.module.css";
+import NotificationBell from "./NotificationBell";
 
 const LINKS = [
   {
@@ -100,7 +101,35 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className={styles.empty}>Loading your workspace…</div>
       </main>
     );
-  const currentLabel = LINKS.find((l) => l.href === pathname)?.label || "Overview";
+  const isActive = (href: string) =>
+    pathname === href ||
+    (href !== "/dashboard" && pathname.startsWith(href + "/"));
+  const activeLink = LINKS.find((l) => isActive(l.href));
+  const currentLabel = activeLink?.label || "Overview";
+  const SEGMENT_LABELS: Record<string, string> = {
+    overview: "Overview",
+    invoices: "Invoices",
+    customers: "Customers",
+    payments: "Payments",
+    reports: "Reports",
+    settings: "Settings",
+    audit: "Audit",
+    team: "Team",
+  };
+  const DETAIL_NOUN: Record<string, string> = {
+    invoices: "Invoice",
+    customers: "Customer",
+    payments: "Payment",
+    reports: "Report",
+    settings: "Workspace",
+  };
+  const segments = pathname.split("/").filter(Boolean);
+  const crumbs: string[] = ["Workspace"];
+  for (let i = 1; i < segments.length; i += 1) {
+    const s = segments[i];
+    if (SEGMENT_LABELS[s]) crumbs.push(SEGMENT_LABELS[s]);
+    else if (i > 1) crumbs.push(DETAIL_NOUN[segments[i - 1]] || "Detail");
+  }
   return (
     <main className={styles.app}>
       {menuOpen && (
@@ -119,9 +148,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           {LINKS.map((l) => (
             <Link
               key={l.href}
-              className={pathname === l.href ? styles.activeNav : ""}
+              className={isActive(l.href) ? styles.activeNav : ""}
               href={l.href}
-              aria-current={pathname === l.href ? "page" : undefined}
+              aria-current={isActive(l.href) ? "page" : undefined}
               onClick={() => setMenuOpen(false)}
             >
               <span>{l.icon}</span>
@@ -187,12 +216,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               )}
             </svg>
           </button>
-          <div className={styles.breadcrumb}>
-            Workspace <span>/</span> {currentLabel}
-          </div>
-          <div className={styles.workspace}>
-            <span className={styles.avatar}>W</span>
-            <span>My workspace</span>
+          <div className={styles.breadcrumb}>{crumbs.join(" / ")}</div>
+          <div className={styles.topbarRight}>
+            <NotificationBell />
+            <div className={styles.workspace}>
+              <span className={styles.avatar}>W</span>
+              <span>My workspace</span>
+            </div>
           </div>
         </header>
         {children}
