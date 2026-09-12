@@ -1,17 +1,6 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { InvoicesService, InvoiceWithDetails } from './invoices.service';
-import { CreateInvoiceDto, UpdateInvoiceDto } from './dto';
+import { CreateInvoiceDto, UpdateInvoiceDto, CreateLineItemDto, UpdateLineItemDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
@@ -23,24 +12,17 @@ export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
   @Post()
-  async create(
-    @Body() dto: CreateInvoiceDto,
-    @CurrentUser() user: CurrentUserData,
-  ): Promise<InvoiceWithDetails> {
+  async create(@Body() dto: CreateInvoiceDto, @CurrentUser() user: CurrentUserData): Promise<InvoiceWithDetails> {
     return this.invoicesService.create(dto);
   }
 
   @Get()
-  async findAll(
-    @Query('status') status?: InvoiceStatus,
-  ): Promise<InvoiceWithDetails[]> {
+  async findAll(@Query('status') status?: InvoiceStatus): Promise<InvoiceWithDetails[]> {
     return this.invoicesService.findAll(status);
   }
 
   @Get('dashboard')
-  async getDashboardBalance(
-    @CurrentUser() user: CurrentUserData,
-  ): Promise<{ outstanding: number; overdue: number; paidThisMonth: number }> {
+  async getDashboardBalance(@CurrentUser() user: CurrentUserData): Promise<{ outstanding: number; overdue: number; paidThisMonth: number }> {
     return this.invoicesService.getDashboardBalance();
   }
 
@@ -49,15 +31,27 @@ export class InvoicesController {
     return this.invoicesService.findOne(id);
   }
 
-  @Put(':id')
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateInvoiceDto,
-  ): Promise<InvoiceWithDetails> {
+  @Patch(':id')
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateInvoiceDto): Promise<InvoiceWithDetails> {
     return this.invoicesService.update(id, dto);
   }
 
-  @Post(':id/send')
+  @Post(':id/line-items')
+  async addLineItem(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateLineItemDto): Promise<InvoiceWithDetails> {
+    return this.invoicesService.addLineItem(id, dto);
+  }
+
+  @Patch(':id/line-items/:lineItemId')
+  async updateLineItem(@Param('id', ParseUUIDPipe) id: string, @Param('lineItemId', ParseUUIDPipe) lineItemId: string, @Body() dto: UpdateLineItemDto): Promise<InvoiceWithDetails> {
+    return this.invoicesService.updateLineItem(id, lineItemId, dto);
+  }
+
+  @Delete(':id/line-items/:lineItemId')
+  async deleteLineItem(@Param('id', ParseUUIDPipe) id: string, @Param('lineItemId', ParseUUIDPipe) lineItemId: string): Promise<InvoiceWithDetails> {
+    return this.invoicesService.deleteLineItem(id, lineItemId);
+  }
+
+  @Post(':id/mark-sent')
   async send(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceWithDetails> {
     return this.invoicesService.send(id);
   }
@@ -65,11 +59,6 @@ export class InvoicesController {
   @Post(':id/mark-paid')
   async markPaid(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceWithDetails> {
     return this.invoicesService.markPaid(id);
-  }
-
-  @Post(':id/mark-overdue')
-  async markOverdue(@Param('id', ParseUUIDPipe) id: string): Promise<InvoiceWithDetails> {
-    return this.invoicesService.markOverdue(id);
   }
 
   @Post(':id/void')

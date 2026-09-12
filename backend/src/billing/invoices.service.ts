@@ -78,6 +78,25 @@ export class InvoicesService {
     return `${prefix}${String(lastNumber + 1).padStart(6, '0')}`;
   }
 
+  async recalculateTotals(invoiceId: string, tenantId: string): Promise<void> {
+    const items = await this.prisma.lineItem.findMany({
+      where: { invoiceId, tenantId },
+    });
+    let subtotal = 0;
+    let tax = 0;
+    for (const item of items) {
+      const itemSubtotal = item.quantity * item.unitPriceCents;
+      subtotal += itemSubtotal;
+      tax += Math.round(itemSubtotal * (item.taxRateBps || 0) / 10000);
+    }
+    const discount = 0;
+    const total = subtotal + tax - discount;
+    await this.prisma.invoice.update({
+      where: { id: invoiceId, tenantId },
+      data: { subtotalCents: subtotal, taxCents: tax, discountCents: discount, totalCents: total },
+    });
+  }
+
   private async validateCustomerOwnership(customerId: string, tenantId: string): Promise<void> {
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, tenantId },
@@ -458,3 +477,53 @@ export class InvoicesService {
     return { outstanding, overdue, paidThisMonth };
   }
 }
+
+  async addLineItem(invoiceId: string, dto: CreateLineItemDto): Promise<InvoiceWithDetails> {
+    const tenantId = this.getTenantId();
+    const invoice = await this.prisma.invoice.findFirst({ where: { id: invoiceId, tenantId } });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    const subtotal = dto.quantity * dto.unitPriceCents;
+    await this.prisma.lineItem.create({
+      data: {
+        invoiceId,
+        tenantId,
+        description: dto.description,
+        quantity: dto.quantity,
+        unitPriceCents: dto.unitPriceCents,
+        taxRateBps: dto.taxRateBps ?? 0,
+        subtotalCents: subtotal,
+      },
+    });
+    await this.recalculateTotals(invoiceId, tenantId);
+    return this.findOne(invoiceId);
+  }
+
+  async updateLineItem(invoiceId: string, lineItemId: string, dto: UpdateLineItemDto): Promise<InvoiceWithDetails> {
+    const tenantId = this.getTenantId();
+    const existing = await this.prisma.lineItem.findFirst({ where: { id: lineItemId, invoiceId, tenantId } });
+    if (!existing) throw new NotFoundException('Line item not found');
+    const qty = dto.quantity ?? existing.quantity;
+    const price = dto.unitPriceCents ?? existing.unitPriceCents;
+    await this.prisma.lineItem.update({
+      where: { id: lineItemId, tenantId },
+      data: {
+        description: dto.description,
+        quantity: qty,
+        unitPriceCents: price,
+        taxRateBps: dto.taxRateBps ?? existing.taxRateBps,
+        subtotalCents: qty * price,
+      },
+    });
+    await this.recalculateTotals(invoiceId, tenantId);
+    return this.findOne(invoiceId);
+  }
+
+  async deleteLineItem(invoiceId: string, lineItemId: string): Promise<InvoiceWithDetails> {
+    const tenantId = this.getTenantId();
+    const existing = await this.prisma.lineItem.findFirst({ where: { id: lineItemId, invoiceId, tenantId } });
+    if (!existing) throw new NotFoundException('Line item not found');
+    await this.prisma.lineItem.delete({ where: { id: lineItemId, tenantId } });
+    await this.recalculateTotals(invoiceId, tenantId);
+    return this.findOne(invoiceId);
+  }
+  }
