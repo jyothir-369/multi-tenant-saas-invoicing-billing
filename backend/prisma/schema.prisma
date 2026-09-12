@@ -18,6 +18,7 @@ customers          Customer[]
   lineItems          LineItem[]
   events             OutboxEvent[]
   payments           Payment[]
+  paymentLinks      PaymentLink[]
   users              User[]
   customerNotes     CustomerNote[]
   notificationReads  NotificationRead[]
@@ -32,6 +33,7 @@ model User {
   email        String
   passwordHash String   @map("password_hash")
   role         UserRole @default(STAFF)
+  name         String?  @map("name")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -63,6 +65,8 @@ model Invoice {
   id              String        @id @default(uuid())
   tenantId        String        @map("tenant_id")
   customerId      String        @map("customer_id")
+  issuedAt        DateTime      @default(now()) @map("issued_at")
+  number          String        @default("") @map("number")
   status          InvoiceStatus @default(DRAFT)
   subtotalCents   Int           @map("subtotal_cents") @default(0)
   taxCents        Int           @map("tax_cents") @default(0)
@@ -78,10 +82,12 @@ model Invoice {
   customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payments        Payment[]
+  paymentLinks   PaymentLink[]
   lineItems       LineItem[]
 
   @@index([tenantId, status])
   @@index([tenantId, dueDate, status])
+  @@index([tenantId, number])
   @@unique([id, tenantId])
   @@map("invoices")
 }
@@ -118,6 +124,23 @@ model Payment {
 
   @@index([tenantId, status, createdAt])
   @@map("payments")
+}
+
+model PaymentLink {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  invoiceId    String   @map("invoice_id")
+  token        String   @unique
+  amountCents  Int      @map("amount_cents")
+  status       String
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt(desc)])
+  @@index([token])
+  @@map("payment_links")
 }
 
 model OutboxEvent {

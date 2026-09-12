@@ -161,8 +161,7 @@ export default function InvoicesPage() {
         </div>
       )}
       {error ? <ErrorState description={error} onRetry={load} /> : null}
-      {/* removed raw error */}
-      {/* previous error block removed */}
+      {error ? (
         <div className={styles.alert}>
           <span>!</span>
           <div>
@@ -170,7 +169,7 @@ export default function InvoicesPage() {
             <button onClick={() => void load()}>Try again</button>
           </div>
         </div>
-      )}
+      ) : null}
       {showForm && (
         <section className={styles.panel}>
           <div className={styles.panelHeader}>

@@ -52,7 +52,7 @@ export class PdfService {
 
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: tenantId },
-      select: { name: true, logoUrl: true },
+      select: { name: true },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
@@ -70,14 +70,14 @@ export class PdfService {
     const totalCents = invoice.totalCents || (subtotalCents + taxCents - discountCents);
 
     return {
-      invoiceNumber: invoice.invoiceNumber || `INV-${invoice.id.slice(0, 4)}`,
+      invoiceNumber: invoice.number || `INV-${invoice.id.slice(0, 4)}`,
       status: invoice.status,
       issuedDate: invoice.createdAt.toISOString().split('T')[0],
       dueDate: new Date(invoice.dueDate).toISOString().split('T')[0],
       customerName: invoice.customer?.name || 'Unknown',
       customerEmail: invoice.customer?.email || '',
       tenantName: tenant.name || 'Ledgerly',
-      tenantLogoUrl: tenant.logoUrl || undefined,
+      tenantLogoUrl: undefined, // TODO(settings-depth): add logoUrl to Tenant model
       lineItems,
       subtotalCents,
       taxCents,

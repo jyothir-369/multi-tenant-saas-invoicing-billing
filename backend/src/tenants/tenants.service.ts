@@ -84,7 +84,7 @@ export class TenantsService {
       this.prisma.payment.count({ where: { tenantId } }),
       this.prisma.invoice.findMany({
         where: { tenantId },
-        select: { amount: true, status: true },
+        select: { totalCents: true, status: true },
       }),
       this.prisma.payment.findMany({
         where: { tenantId, status: 'COMPLETED' },
@@ -98,11 +98,11 @@ export class TenantsService {
 
     const outstandingAmount = invoices
       .filter((i) => i.status === 'SENT' || i.status === 'OVERDUE')
-      .reduce((sum, i) => sum + i.amount, 0);
+      .reduce((sum, i) => sum + i.totalCents, 0);
 
     const overdueAmount = invoices
       .filter((i) => i.status === 'OVERDUE')
-      .reduce((sum, i) => sum + i.amount, 0);
+      .reduce((sum, i) => sum + i.totalCents, 0);
 
     const paidThisMonth = payments
       .filter((p) => new Date(p.createdAt) >= startOfMonth)

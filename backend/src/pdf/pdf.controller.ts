@@ -1,9 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Res, UseGuards, Req } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PdfService } from './pdf.service';
 import { getTenantIdFromRequest } from '../common/get-tenant-id.helper';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 @Controller('invoices')
 @UseGuards(JwtAuthGuard)

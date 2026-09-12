@@ -7,17 +7,17 @@ function getBreadcrumbs(pathname: string) {
   if (!pathname || pathname === "/dashboard") return [{ label: "Workspace", href: "/dashboard" }];
   const parts = pathname.split("/").filter(Boolean);
   const rest = parts.slice(1);
-  const crumbs = [{ label: "Workspace", href: "/dashboard" }];
+  const crumbs: { label: string; href: string | null }[] = [{ label: "Workspace", href: "/dashboard" }];
   if (rest.length === 0) return crumbs;
   const module = rest[0];
   const moduleLabel = module ? module.charAt(0).toUpperCase() + module.slice(1) : "Overview";
   crumbs.push({ label: moduleLabel, href: "/dashboard/" + module });
   if (rest.length >= 2) {
     const detail = rest[1];
-    let detailLabel = detail;
-    if (module === "invoices" && detail) detailLabel = "INV-" + detail.slice(0, 4).toUpperCase();
+    let detailLabel: string = detail || "";
+    if (module === "invoices" && detail) detailLabel = "INV-" + (detail.slice(0, 4)).toUpperCase();
     else if (module === "customers" && detail) detailLabel = detail;
-    crumbs.push({ label: detailLabel, href: null });
+    crumbs.push({ label: detailLabel ?? "", href: null });
   }
   return crumbs;
 }
@@ -30,7 +30,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [newModal, setNewModal] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState<string>("");
   const wsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
       const saved = localStorage.getItem("ledgerly.currentWorkspace");
       if (saved) setWsName(saved);
       const e = localStorage.getItem("ledgerly_email") || "";
-      setEmail(e);
+      setEmail(e ?? "");
     } catch {}
   }, []);
 

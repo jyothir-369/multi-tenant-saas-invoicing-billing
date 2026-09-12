@@ -114,8 +114,9 @@ export default function CustomersPage() {
         bv = b.lastInvoiceDate || "";
       }
       if (av === bv) return 0;
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      return sortDir === "asc" ? 1 : -1;
+      const aStr = (av ?? "").toString();
+      const bStr = (bv ?? "").toString();
+      return aStr.localeCompare(bStr) * (sortDir === "asc" ? 1 : -1);
     });
     return arr;
   }, [filtered, sortKey, sortDir]);

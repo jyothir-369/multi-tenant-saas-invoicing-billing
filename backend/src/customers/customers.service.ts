@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PrismaService }
-import { AuditService } from '../audit/audit.service'; from '../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { CreateCustomerDto, UpdateCustomerDto, CreateNoteDto, UpdateNoteDto } from './dto';
 import { Customer, CustomerNote } from '@prisma/client';
@@ -14,7 +13,7 @@ export interface CustomerWithBalance extends Customer {
 export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService,
+    // TODO(item-6-real): audit write — audit module not implemented yet
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -248,23 +247,23 @@ export class CustomersService {
     const tenantId = this.getTenantId();
     const invoices = await this.prisma.invoice.findMany({
       where: { customerId, tenantId, status: { in: ['SENT', 'OVERDUE'] } },
-      select: { totalCents: true },
+      select: { totalCents: true, id: true },
     });
-    const invoiceTotal = invoices.reduce((sum, inv) => sum + inv.totalCents, 0);
+    const invoiceTotal = invoices.reduce((sum: number, inv: { totalCents: number }) => sum + inv.totalCents, 0);
 
-    const invoiceIds = invoices.map(i => i.id);
+    const invoiceIds = invoices.map((i: { id: string }) => i.id);
     // Payments are linked by invoiceId; we need payments for invoices of this customer
     const allInvoices = await this.prisma.invoice.findMany({
       where: { customerId, tenantId },
       select: { id: true },
     });
-    const allInvoiceIds = allInvoices.map(i => i.id);
+    const allInvoiceIds = allInvoices.map((i: { id: string }) => i.id);
 
     const payments = await this.prisma.payment.findMany({
       where: { invoiceId: { in: allInvoiceIds }, status: 'SUCCEEDED', tenantId },
       select: { amount: true },
     });
-    const paymentsTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+    const paymentsTotal = payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
     return invoiceTotal - paymentsTotal;
   }

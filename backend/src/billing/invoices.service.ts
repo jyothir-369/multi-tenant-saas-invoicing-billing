@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { CreateInvoiceDto, UpdateInvoiceDto } from './dto';
+import { CreateLineItemDto, UpdateLineItemDto } from './dto';
 import { InvoiceStatus, Invoice } from '@prisma/client';
 
 export interface InvoiceWithDetails extends Invoice {
@@ -136,7 +137,7 @@ export class InvoicesService {
       data: {
         tenantId,
         customerId: dto.customerId,
-        amount: dto.amount,
+        totalCents: dto.amount, // DTO amount is in cents (mapped to totalCents below)
         dueDate: new Date(dto.dueDate),
         recurrenceRule: dto.recurrenceRule,
         status: InvoiceStatus.DRAFT,
@@ -234,7 +235,7 @@ export class InvoicesService {
       ...invoice,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
-      balance: invoice.amount - totalPaid,
+      balance: invoice.totalCents - totalPaid,
     };
   }
 
@@ -258,7 +259,7 @@ export class InvoicesService {
     }
 
     const updateData: any = {};
-    if (dto.amount !== undefined) updateData.amount = dto.amount;
+    if (dto.amount !== undefined) updateData.totalCents = dto.amount;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
     if (dto.recurrenceRule !== undefined) updateData.recurrenceRule = dto.recurrenceRule;
     if (dto.status !== undefined) updateData.status = dto.status;
@@ -280,7 +281,7 @@ export class InvoicesService {
       ...invoice,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
-      balance: invoice.amount - totalPaid,
+      balance: invoice.totalCents - totalPaid,
     };
   }
 
@@ -313,7 +314,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_SENT', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       dueDate: invoice.dueDate.toISOString(),
     });
 
@@ -323,7 +324,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -354,7 +355,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_PAID', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       paidAt: new Date().toISOString(),
     });
 
@@ -364,7 +365,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -395,7 +396,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_OVERDUE', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       dueDate: invoice.dueDate.toISOString(),
     });
 
@@ -405,7 +406,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -439,7 +440,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -500,7 +501,7 @@ export class InvoicesService {
 
     for (const invoice of invoices) {
       const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-      const balance = invoice.amount - totalPaid;
+      const balance = invoice.totalCents - totalPaid;
 
       if (invoice.status === InvoiceStatus.SENT) {
         if (new Date(invoice.dueDate) < now) {

@@ -5,6 +5,9 @@ import CustomerTabs from "../../../../components/CustomerTabs";
 import CustomerBalanceCard from "../../../../components/CustomerBalanceCard";
 import { api } from "../../../../lib/api";
 
+type Invoice = { id: string; totalCents: number; status: string; number?: string; issuedAt?: string };
+type Payment = { id: string; amount: number; status: string };
+
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") || "invoices";
@@ -23,11 +26,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
         api(`/customers/${params.id}/invoices`),
         api(`/customers/${params.id}/payments`),
       ]);
-      setCustomer(c);
-      setNotes(n);
-      setActivities(a);
-      setInvoices(inv.data || inv);
-      setPayments(p.data || p);
+      setCustomer(c as any);
+      setNotes(n as any[]);
+      setActivities(a as any[]);
+      setInvoices((inv as any)?.data || (inv as Invoice[]) || []);
+      setPayments((p as any)?.data || (p as Payment[]) || []);
     }
     load();
   }, [params.id]);

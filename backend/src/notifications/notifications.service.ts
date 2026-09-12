@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { QueueService, JOB_NAMES } from './queues';
@@ -197,13 +197,13 @@ export class NotificationsService {
         {
           description: `Invoice ${invoiceNumber || invoiceId}`,
           quantity: 1,
-          unitPrice: invoice.amount,
-          total: invoice.amount,
+          unitPrice: invoice.totalCents,
+          total: invoice.totalCents,
         },
       ],
-      subtotal: invoice.amount,
+      subtotal: invoice.totalCents,
       tax: 0,
-      total: invoice.amount,
+      total: invoice.totalCents,
       tenantName: invoice.tenant.name,
     };
 
@@ -320,7 +320,10 @@ export class NotificationsService {
               data: {
                 tenantId: invoice.tenantId,
                 customerId: invoice.customerId,
-                amount: invoice.amount,
+              subtotalCents: invoice.subtotalCents ?? 0,
+                taxCents: invoice.taxCents ?? 0,
+                discountCents: invoice.discountCents ?? 0,
+                totalCents: invoice.totalCents ?? 0,
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
                 recurrenceRule: invoice.recurrenceRule,
                 status: 'SENT',
@@ -338,7 +341,7 @@ export class NotificationsService {
               customerId: invoice.customerId,
               customerName: invoice.customer.name,
               customerEmail: invoice.customer.email,
-              amount: invoice.amount,
+              totalCents: invoice.totalCents ?? 0,
             });
 
             generated++;

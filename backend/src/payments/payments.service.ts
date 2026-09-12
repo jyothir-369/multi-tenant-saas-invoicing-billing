@@ -90,7 +90,7 @@ export class PaymentsService {
 
     // Calculate remaining balance
     const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-    const remainingBalance = invoice.amount - totalPaid;
+    const remainingBalance = invoice.totalCents - totalPaid;
 
     if (remainingBalance <= 0) {
       throw new BadRequestException('Invoice is already fully paid');
@@ -111,7 +111,7 @@ export class PaymentsService {
         invoiceId: invoice.id,
         customerId: invoice.customerId,
         customerEmail: dto.customerEmail || invoice.customer.email,
-        originalAmount: invoice.amount.toString(),
+        originalAmount: invoice.totalCents.toString(),
         idempotencyKey,
       },
       idempotencyKey,
@@ -143,7 +143,7 @@ export class PaymentsService {
         invoice: {
           select: {
             id: true,
-            amount: true,
+            totalCents: true,
             status: true,
             customer: {
               select: { name: true, email: true },
@@ -242,7 +242,7 @@ export class PaymentsService {
     // Calculate new total and check if invoice should be marked as paid
     const existingTotal = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
     const newTotal = existingTotal + amount;
-    const isFullyPaid = newTotal >= invoice.amount;
+    const isFullyPaid = newTotal >= invoice.totalCents;
 
     // Use transaction to ensure atomicity
     const result = await this.prisma.$transaction(async (tx) => {

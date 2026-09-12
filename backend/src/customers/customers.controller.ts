@@ -12,7 +12,7 @@ import {
   Res,
   Header,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { CustomersService, CustomerWithBalance } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto, CreateNoteDto, UpdateNoteDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

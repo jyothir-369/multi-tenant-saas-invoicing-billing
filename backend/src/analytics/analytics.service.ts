@@ -19,12 +19,12 @@ export class AnalyticsService {
     ]);
     const completed = payments.filter(p => p.status === 'COMPLETED');
     const outstandingInvoices = await this.prisma.invoice.findMany({ where: { tenantId, status: { in: ['SENT', 'OVERDUE'] } }, include: { payments: true } });
-    const outstanding = outstandingInvoices.reduce((s, i) => s + i.amount - i.payments.filter(p => p.status === 'COMPLETED').reduce((a,p) => a+p.amount,0), 0);
-    const overdue = outstandingInvoices.filter(i => i.status === 'OVERDUE').reduce((s,i) => s + i.amount - i.payments.filter(p=>p.status==='COMPLETED').reduce((a,p)=>a+p.amount,0), 0);
+    const outstanding = outstandingInvoices.reduce((s, i) => s + i.totalCents - i.payments.filter(p => p.status === 'COMPLETED').reduce((a,p) => a+p.amount,0), 0);
+    const overdue = outstandingInvoices.filter(i => i.status === 'OVERDUE').reduce((s,i) => s + i.totalCents - i.payments.filter(p=>p.status==='COMPLETED').reduce((a,p)=>a+p.amount,0), 0);
     const revenue = new Map<string, number>();
     completed.forEach(p => { const key = p.createdAt.toISOString().slice(0, 10); revenue.set(key, (revenue.get(key) ?? 0) + p.amount); });
     const status = invoices.reduce((a,i) => ({ ...a, [i.status]: (a[i.status] ?? 0) + 1 }), {} as Record<string,number>);
-    const topCustomers = customers.map(c => ({ name: c.name, invoices: c.invoices.length, billed: c.invoices.reduce((s,i)=>s+i.amount,0) })).sort((a,b)=>b.billed-a.billed).slice(0,5);
+    const topCustomers = customers.map(c => ({ name: c.name, invoices: c.invoices.length, billed: c.invoices.reduce((s,i)=>s+i.totalCents,0) })).sort((a,b)=>b.billed-a.billed).slice(0,5);
     return { range, from, to: new Date(), revenueTrends: [...revenue].map(([date, amount])=>({date,amount})), invoiceStatus: status, paymentAnalytics: { count: completed.length, amount: completed.reduce((s,p)=>s+p.amount,0), pending: payments.filter(p=>p.status==='PENDING').length, refunded: payments.filter(p=>p.status.includes('REFUND')).length }, balances: { outstanding, overdue }, activeCustomers: customers.filter(c=>!c.isArchived && c.invoices.some(i=>i.createdAt>=from)).length, topCustomers };
   }
 }
