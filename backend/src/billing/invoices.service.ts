@@ -153,33 +153,60 @@ export class InvoicesService {
     };
   }
 
-  async findAll(status?: InvoiceStatus): Promise<InvoiceWithDetails[]> {
+  async findAll(query?: { status?: InvoiceStatus; search?: string; sort?: string; order?: 'asc' | 'desc'; page?: number; pageSize?: number }): Promise<{ data: InvoiceWithDetails[]; total: number }> {
     const tenantId = this.getTenantId();
+    const status = query?.status;
+    const search = query?.search || '';
+    const sort = query?.sort || 'createdAt';
+    const order = query?.order || 'desc';
+    const page = Math.max(1, query?.page || 1);
+    const pageSize = Math.min(50, Math.max(5, query?.pageSize || 20));
 
     const where: any = { tenantId };
-    if (status) {
-      where.status = status;
+    if (status) where.status = status;
+    if (search.trim()) {
+      where.OR = [
+        { customer: { name: { contains: search.trim(), mode: 'insensitive' } } },
+        { customer: { email: { contains: search.trim(), mode: 'insensitive' } } },
+        { id: { contains: search.trim(), mode: 'insensitive' } },
+      ];
     }
 
-    const invoices = await this.prisma.invoice.findMany({
-      where,
-      include: {
-        customer: {
-          select: { name: true, email: true },
+    const orderBy: any = {};
+    if (['invoiceNumber','customerName','status','totalCents','dueDate'].includes(sort)) {
+      if (sort === 'customerName') orderBy.customer = { name: order };
+      else if (sort === 'invoiceNumber') orderBy.invoiceNumber = order;
+      else if (sort === 'status') orderBy.status = order;
+      else if (sort === 'totalCents') orderBy.totalCents = order;
+      else if (sort === 'dueDate') orderBy.dueDate = order;
+    } else {
+      orderBy.createdAt = order;
+    }
+
+    const [invoices, total] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where,
+        include: {
+          customer: { select: { name: true, email: true } },
+          payments: true,
         },
-        payments: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.invoice.count({ where }),
+    ]);
 
-    return invoices.map((invoice) => ({
-      ...invoice,
-      customerName: invoice.customer.name,
-      customerEmail: invoice.customer.email,
-      balance: invoice.amount - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
-    }));
+    return {
+      data: invoices.map((invoice) => ({
+        ...invoice,
+        customerName: invoice.customer.name,
+        customerEmail: invoice.customer.email,
+        balance: (invoice.totalCents || 0) - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
+      })),
+      total,
+    };
   }
-
   async findOne(id: string): Promise<InvoiceWithDetails> {
     const tenantId = this.getTenantId();
 
@@ -432,6 +459,20 @@ export class InvoicesService {
     });
   }
 
+
+  async getTabCounts(): Promise<Record<string, number>> {
+    const tenantId = this.getTenantId();
+    const [all, draft, sent, overdue, paid, void_] = await Promise.all([
+      this.prisma.invoice.count({ where: { tenantId } }),
+      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.DRAFT } }),
+      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.SENT } }),
+      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.OVERDUE } }),
+      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.PAID } }),
+      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.VOID } }),
+    ]);
+    return { all, draft, sent, overdue, paid, void: void_ };
+  }
+
   async getDashboardBalance(): Promise<{
     outstanding: number;
     overdue: number;
@@ -476,8 +517,6 @@ export class InvoicesService {
 
     return { outstanding, overdue, paidThisMonth };
   }
-}
-
   async addLineItem(invoiceId: string, dto: CreateLineItemDto): Promise<InvoiceWithDetails> {
     const tenantId = this.getTenantId();
     const invoice = await this.prisma.invoice.findFirst({ where: { id: invoiceId, tenantId } });
@@ -527,3 +566,5 @@ export class InvoicesService {
     return this.findOne(invoiceId);
   }
   }
+
+
