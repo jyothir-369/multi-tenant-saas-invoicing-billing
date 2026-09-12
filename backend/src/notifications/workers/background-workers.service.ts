@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+﻿import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
 import { readFile } from 'node:fs/promises';
 import { QueueService, JOB_NAMES, QueueJobData } from '../queues';
@@ -305,10 +305,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
             data: {
               tenantId: invoice.tenantId,
               customerId: invoice.customerId,
-              subtotalCents: invoice.subtotalCents ?? 0,
-              taxCents: invoice.taxCents ?? 0,
-              discountCents: invoice.discountCents ?? 0,
-              totalCents: invoice.totalCents ?? 0,
+              totalCents: invoice.totalCents,
               dueDate: this.calculateNextDueDate(invoice.recurrenceRule!),
               recurrenceRule: invoice.recurrenceRule,
               status: 'SENT',

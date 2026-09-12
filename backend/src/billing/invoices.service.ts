@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { CreateInvoiceDto, UpdateInvoiceDto } from './dto';
-import { CreateLineItemDto, UpdateLineItemDto } from './dto';
 import { InvoiceStatus, Invoice } from '@prisma/client';
 
 export interface InvoiceWithDetails extends Invoice {
@@ -29,7 +28,6 @@ const VALID_STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
 export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
-
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -80,25 +78,6 @@ export class InvoicesService {
     return `${prefix}${String(lastNumber + 1).padStart(6, '0')}`;
   }
 
-  async recalculateTotals(invoiceId: string, tenantId: string): Promise<void> {
-    const items = await this.prisma.lineItem.findMany({
-      where: { invoiceId, tenantId },
-    });
-    let subtotal = 0;
-    let tax = 0;
-    for (const item of items) {
-      const itemSubtotal = item.quantity * item.unitPriceCents;
-      subtotal += itemSubtotal;
-      tax += Math.round(itemSubtotal * (item.taxRateBps || 0) / 10000);
-    }
-    const discount = 0;
-    const total = subtotal + tax - discount;
-    await this.prisma.invoice.update({
-      where: { id: invoiceId, tenantId },
-      data: { subtotalCents: subtotal, taxCents: tax, discountCents: discount, totalCents: total },
-    });
-  }
-
   private async validateCustomerOwnership(customerId: string, tenantId: string): Promise<void> {
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, tenantId },
@@ -132,12 +111,11 @@ export class InvoicesService {
 
     await this.validateCustomerOwnership(dto.customerId, tenantId);
 
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      const inv = await (tx as any).invoice.create({
+    const invoice = await this.prisma.invoice.create({
       data: {
         tenantId,
         customerId: dto.customerId,
-        totalCents: dto.amount, // DTO amount is in cents (mapped to totalCents below)
+        totalCents: dto.totalCents,
         dueDate: new Date(dto.dueDate),
         recurrenceRule: dto.recurrenceRule,
         status: InvoiceStatus.DRAFT,
@@ -149,69 +127,40 @@ export class InvoicesService {
       },
     });
 
-      return {
-        ...inv,
-        customerName: inv.customer.name,
-        customerEmail: inv.customer.email,
-      };
-    });
-    return invoice;
-  }
-
-  async findAll(query?: { status?: InvoiceStatus; search?: string; sort?: string; order?: 'asc' | 'desc'; page?: number; pageSize?: number }): Promise<{ data: InvoiceWithDetails[]; total: number }> {
-    const tenantId = this.getTenantId();
-    const status = query?.status;
-    const search = query?.search || '';
-    const sort = query?.sort || 'createdAt';
-    const order = query?.order || 'desc';
-    const page = Math.max(1, query?.page || 1);
-    const pageSize = Math.min(50, Math.max(5, query?.pageSize || 20));
-
-    const where: any = { tenantId };
-    if (status) where.status = status;
-    if (search.trim()) {
-      where.OR = [
-        { customer: { name: { contains: search.trim(), mode: 'insensitive' } } },
-        { customer: { email: { contains: search.trim(), mode: 'insensitive' } } },
-        { id: { contains: search.trim(), mode: 'insensitive' } },
-      ];
-    }
-
-    const orderBy: any = {};
-    if (['invoiceNumber','customerName','status','totalCents','dueDate'].includes(sort)) {
-      if (sort === 'customerName') orderBy.customer = { name: order };
-      else if (sort === 'invoiceNumber') orderBy.invoiceNumber = order;
-      else if (sort === 'status') orderBy.status = order;
-      else if (sort === 'totalCents') orderBy.totalCents = order;
-      else if (sort === 'dueDate') orderBy.dueDate = order;
-    } else {
-      orderBy.createdAt = order;
-    }
-
-    const [invoices, total] = await Promise.all([
-      this.prisma.invoice.findMany({
-        where,
-        include: {
-          customer: { select: { name: true, email: true } },
-          payments: true,
-        },
-        orderBy,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.invoice.count({ where }),
-    ]);
-
     return {
-      data: invoices.map((invoice) => ({
-        ...invoice,
-        customerName: invoice.customer.name,
-        customerEmail: invoice.customer.email,
-        balance: (invoice.totalCents || 0) - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
-      })),
-      total,
+      ...invoice,
+      customerName: invoice.customer.name,
+      customerEmail: invoice.customer.email,
     };
   }
+
+  async findAll(status?: InvoiceStatus): Promise<InvoiceWithDetails[]> {
+    const tenantId = this.getTenantId();
+
+    const where: any = { tenantId };
+    if (status) {
+      where.status = status;
+    }
+
+    const invoices = await this.prisma.invoice.findMany({
+      where,
+      include: {
+        customer: {
+          select: { name: true, email: true },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return invoices.map((invoice) => ({
+      ...invoice,
+      customerName: invoice.customer.name,
+      customerEmail: invoice.customer.email,
+      balance: invoice.totalCents - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
+    }));
+  }
+
   async findOne(id: string): Promise<InvoiceWithDetails> {
     const tenantId = this.getTenantId();
 
@@ -254,12 +203,12 @@ export class InvoicesService {
       this.validateStatusTransition(existing.status, dto.status as InvoiceStatus);
     }
 
-    if (existing.status !== InvoiceStatus.DRAFT && (dto.amount || dto.dueDate || dto.recurrenceRule)) {
-      throw new BadRequestException('Can only modify amount, due date, and recurrence rule for DRAFT invoices');
+    if (existing.status !== InvoiceStatus.DRAFT && (dto.totalCents || dto.dueDate || dto.recurrenceRule)) {
+      throw new BadRequestException('Can only modify total, due date, and recurrence rule for DRAFT invoices');
     }
 
     const updateData: any = {};
-    if (dto.amount !== undefined) updateData.totalCents = dto.amount;
+    if (dto.totalCents !== undefined) updateData.totalCents = dto.totalCents;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
     if (dto.recurrenceRule !== undefined) updateData.recurrenceRule = dto.recurrenceRule;
     if (dto.status !== undefined) updateData.status = dto.status;
@@ -464,20 +413,6 @@ export class InvoicesService {
     });
   }
 
-
-  async getTabCounts(): Promise<Record<string, number>> {
-    const tenantId = this.getTenantId();
-    const [all, draft, sent, overdue, paid, void_] = await Promise.all([
-      this.prisma.invoice.count({ where: { tenantId } }),
-      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.DRAFT } }),
-      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.SENT } }),
-      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.OVERDUE } }),
-      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.PAID } }),
-      this.prisma.invoice.count({ where: { tenantId, status: InvoiceStatus.VOID } }),
-    ]);
-    return { all, draft, sent, overdue, paid, void: void_ };
-  }
-
   async getDashboardBalance(): Promise<{
     outstanding: number;
     overdue: number;
@@ -522,54 +457,4 @@ export class InvoicesService {
 
     return { outstanding, overdue, paidThisMonth };
   }
-  async addLineItem(invoiceId: string, dto: CreateLineItemDto): Promise<InvoiceWithDetails> {
-    const tenantId = this.getTenantId();
-    const invoice = await this.prisma.invoice.findFirst({ where: { id: invoiceId, tenantId } });
-    if (!invoice) throw new NotFoundException('Invoice not found');
-    const subtotal = dto.quantity * dto.unitPriceCents;
-    await this.prisma.lineItem.create({
-      data: {
-        invoiceId,
-        tenantId,
-        description: dto.description,
-        quantity: dto.quantity,
-        unitPriceCents: dto.unitPriceCents,
-        taxRateBps: dto.taxRateBps ?? 0,
-        subtotalCents: subtotal,
-      },
-    });
-    await this.recalculateTotals(invoiceId, tenantId);
-    return this.findOne(invoiceId);
-  }
-
-  async updateLineItem(invoiceId: string, lineItemId: string, dto: UpdateLineItemDto): Promise<InvoiceWithDetails> {
-    const tenantId = this.getTenantId();
-    const existing = await this.prisma.lineItem.findFirst({ where: { id: lineItemId, invoiceId, tenantId } });
-    if (!existing) throw new NotFoundException('Line item not found');
-    const qty = dto.quantity ?? existing.quantity;
-    const price = dto.unitPriceCents ?? existing.unitPriceCents;
-    await this.prisma.lineItem.update({
-      where: { id: lineItemId, tenantId },
-      data: {
-        description: dto.description,
-        quantity: qty,
-        unitPriceCents: price,
-        taxRateBps: dto.taxRateBps ?? existing.taxRateBps,
-        subtotalCents: qty * price,
-      },
-    });
-    await this.recalculateTotals(invoiceId, tenantId);
-    return this.findOne(invoiceId);
-  }
-
-  async deleteLineItem(invoiceId: string, lineItemId: string): Promise<InvoiceWithDetails> {
-    const tenantId = this.getTenantId();
-    const existing = await this.prisma.lineItem.findFirst({ where: { id: lineItemId, invoiceId, tenantId } });
-    if (!existing) throw new NotFoundException('Line item not found');
-    await this.prisma.lineItem.delete({ where: { id: lineItemId, tenantId } });
-    await this.recalculateTotals(invoiceId, tenantId);
-    return this.findOne(invoiceId);
-  }
-  }
-
-
+}

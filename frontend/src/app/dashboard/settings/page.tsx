@@ -1,9 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import styles from "../../page.module.css";
 import { api } from "../../../lib/api";
-import SettingsTabs from "./settings-tabs";
 type Profile = {
   email: string;
   role: string;
@@ -26,9 +24,6 @@ export default function SettingsPage() {
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") || "workspace";
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -88,14 +83,6 @@ export default function SettingsPage() {
           <p>Manage your workspace identity and account details.</p>
         </div>
       </div>
-      <SettingsTabs
-        active={activeTab}
-        onChange={(k) => {
-          const p = new URLSearchParams(searchParams.toString());
-          p.set("tab", k);
-          router.push(`/dashboard/settings?${p.toString()}`);
-        }}
-      />
       {message && (
         <div className={styles.alert}>
           <span>✓</span>
@@ -103,7 +90,7 @@ export default function SettingsPage() {
         </div>
       )}
       {error && (
-        <div className={styles.alert}>
+        <div className={`${styles.alert} ${styles.alertError}`}>
           <span>!</span>
           <div>
             <p>{error}</p>
@@ -111,90 +98,95 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-      {activeTab === "workspace" && (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>Workspace</h2>
-              <p>Only workspace owners can update these settings.</p>
-            </div>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Workspace</h2>
+            <p>Only workspace owners can update these settings.</p>
           </div>
-          <form onSubmit={save} className={styles.customerForm}>
-            <label htmlFor="workspace-name">Workspace name</label>
-            <input
-              id="workspace-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              minLength={1}
-            />
-            <button
-              className={styles.primaryButton}
-              disabled={saving || profile?.role !== "OWNER"}
-            >
-              {saving ? "Saving…" : "Save changes"}
-            </button>
-          </form>
-          <p>
-            Plan: <b>{tenant?.plan || "Unavailable"}</b>
-          </p>
-        </section>
-      )}
-      {activeTab === "account" && (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>Your account</h2>
-              <p>Authenticated identity for this tenant.</p>
-            </div>
-          </div>
-          <p>
-            <b>{profile?.email}</b>
-          </p>
-          <p>
-            Role: <b>{profile?.role}</b>
-          </p>
-          <p>Tenant: {profile?.tenantName || tenant?.name}</p>
-        </section>
-      )}
-      {activeTab === "usage" && (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>Workspace usage</h2>
-              <p>Read-only totals from the current tenant.</p>
-            </div>
-          </div>
-          {stats ? (
-            <p>
-              {stats.totalUsers} users · {stats.totalCustomers} customers ·{" "}
-              {stats.totalInvoices} invoices · {stats.totalPayments} payments
-            </p>
-          ) : (
-            <div className={styles.empty}>Usage data unavailable.</div>
+        </div>
+        <form onSubmit={save} className={styles.customerForm}>
+          <label htmlFor="workspace-name">Workspace name</label>
+          <input
+            id="workspace-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            minLength={1}
+          />
+          <button
+            className={styles.primaryButton}
+            disabled={saving || profile?.role !== "OWNER"}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </form>
+        <span className={styles.sectionTitle}>Plan</span>
+        <p>
+          <b>{tenant?.plan || "Unavailable"}</b>
+          {profile?.role !== "OWNER" && (
+            <small>Billing changes are restricted to workspace owners.</small>
           )}
-        </section>
-      )}
-      {activeTab === "audit" && (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>Audit</h2>
-              <p>Audit log view from <a href="/dashboard/settings/audit" className="text-[#23745a] underline">Audit Log page →</a>.</p>
-            </div>
+        </p>
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Your account</h2>
+            <p>Authenticated identity for this tenant.</p>
           </div>
-        </section>
-      )}
-      {!("workspace" === activeTab || "account" === activeTab || "usage" === activeTab || "audit" === activeTab) && (
-        <section className={styles.panel}>
-          <h2>Unavailable settings</h2>
-          <p>
-            Password changes, team management, billing plan changes, and
-            notification preferences do not currently have supported frontend
-            settings workflows.
-          </p>
-        </section>
-      )}
+        </div>
+        <span className={styles.sectionTitle}>Signed in as</span>
+        <p>
+          <b>{profile?.email}</b>
+        </p>
+        <span className={styles.sectionTitle}>Role</span>
+        <p>
+          <b>{profile?.role}</b>
+        </p>
+        <span className={styles.sectionTitle}>Tenant</span>
+        <p>{profile?.tenantName || tenant?.name}</p>
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Workspace usage</h2>
+            <p>Read-only totals from the current tenant.</p>
+          </div>
+        </div>
+        {stats ? (
+          <div className={styles.kpis} style={{ marginBottom: 0 }}>
+            {[
+              ["Users", stats.totalUsers],
+              ["Customers", stats.totalCustomers],
+              ["Invoices", stats.totalInvoices],
+              ["Payments", stats.totalPayments],
+            ].map(([l, v]) => (
+              <article className={styles.kpi} key={String(l)}>
+                <div className={styles.kpiTop}>
+                  <span>{l}</span>
+                </div>
+                <strong>{v.toLocaleString()}</strong>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.empty}>Usage data unavailable.</div>
+        )}
+      </section>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Unavailable settings</h2>
+            <p>Workflows that are not yet wired up in the frontend.</p>
+          </div>
+        </div>
+        <p>
+          Password changes, team management, billing plan changes, and
+          notification preferences do not currently have supported frontend
+          settings workflows.
+        </p>
+      </section>
     </div>
   );
 }

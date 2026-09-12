@@ -2,9 +2,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "../../page.module.css";
 import { api, formatMoney } from "../../../lib/api";
-import EmptyState from "../../../components/EmptyState";
-import ErrorState from "../../../components/ErrorState";
-import LoadingSkeleton from "../../../components/LoadingSkeleton";
 type Invoice = {
   id: string;
   invoiceNumber?: string;
@@ -17,28 +14,19 @@ type Invoice = {
   dueDate: string;
 };
 type Customer = { id: string; name: string; isArchived: boolean };
-async function downloadInvoicePdf(id: string, number?: string) {
-  try {
-    const res = await fetch(`/invoices/${id}/pdf`, {
-      headers: { Authorization: `Bearer ${window.localStorage.getItem("ledgerly_token") || ""}` },
-    });
-    if (!res.ok) throw new Error("Download failed");
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `INV-${number || id.slice(0, 4)}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    // Show toast message
-    alert("Invoice PDF downloading…");
-  } catch (e: any) {
-    alert("Failed to download PDF: " + (e?.message || e));
-  }
-}
 const statuses = ["ALL", "DRAFT", "SENT", "PAID", "OVERDUE", "VOID"];
+function statusTone(status: string) {
+  const s = status.toUpperCase();
+  if (s === "PAID")
+    return { badge: `${styles.badge} ${styles.paid}`, label: "Paid" };
+  if (s === "OVERDUE")
+    return { badge: `${styles.badge} ${styles.overdue}`, label: "Overdue" };
+  if (s === "VOID")
+    return { badge: `${styles.badge} ${styles.pending}`, label: "Void" };
+  if (s === "SENT")
+    return { badge: `${styles.badge} ${styles.pending}`, label: "Sent" };
+  return { badge: `${styles.badge}`, label: s };
+}
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
@@ -160,16 +148,15 @@ export default function InvoicesPage() {
           <p>{message}</p>
         </div>
       )}
-      {error ? <ErrorState description={error} onRetry={load} /> : null}
-      {error ? (
-        <div className={styles.alert}>
+      {error && (
+        <div className={`${styles.alert} ${styles.alertError}`}>
           <span>!</span>
           <div>
             <p>{error}</p>
             <button onClick={() => void load()}>Try again</button>
           </div>
         </div>
-      ) : null}
+      )}
       {showForm && (
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
@@ -254,28 +241,22 @@ export default function InvoicesPage() {
           <div className={styles.empty}>Loading invoices…</div>
         ) : shown.length ? (
           <div className={styles.table}>
-            {shown.map((i) => (
-              <div className={styles.tableRow} key={i.id}>
-                <span>
-                  <button onClick={() => setSelected(i)}>
-                    {i.invoiceNumber || `Invoice ${i.id.slice(0, 6)}`}
-                  </button>
-                  <small>{i.customerName || "Customer"}</small>
-                  <button
-                    aria-label="Download PDF"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await downloadInvoicePdf(i.id, i.invoiceNumber || i.id);
-                    }}
-                  >
-                    ↓ PDF
-                  </button>
-                </span>
-                <span className={styles.badge}>{i.status}</span>
-                <b>{formatMoney(i.balance ?? i.amount)}</b>
-                <small>{new Date(i.dueDate).toLocaleDateString()}</small>
-              </div>
-            ))}
+            {shown.map((i) => {
+              const tone = statusTone(i.status);
+              return (
+                <div className={styles.tableRow} key={i.id}>
+                  <span>
+                    <button onClick={() => setSelected(i)}>
+                      {i.invoiceNumber || `Invoice ${i.id.slice(0, 6)}`}
+                    </button>
+                    <small>{i.customerName || "Customer"}</small>
+                  </span>
+                  <span className={tone.badge}>{tone.label}</span>
+                  <b>{formatMoney(i.balance ?? i.amount)}</b>
+                  <small>{new Date(i.dueDate).toLocaleDateString()}</small>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className={styles.empty}>
@@ -290,11 +271,13 @@ export default function InvoicesPage() {
             <div>
               <h2>{selected.invoiceNumber || "Invoice details"}</h2>
               <p>
-                {selected.customerName || "Customer"} · {selected.status}
+                {selected.customerName || "Customer"} ·{" "}
+                {statusTone(selected.status).label}
               </p>
             </div>
             <button onClick={() => setSelected(null)}>Close</button>
           </div>
+          <span className={styles.sectionTitle}>Summary</span>
           <p>
             Amount: <b>{formatMoney(selected.amount)}</b> · Balance:{" "}
             <b>{formatMoney(selected.balance ?? selected.amount)}</b>
@@ -303,6 +286,7 @@ export default function InvoicesPage() {
             Issued: {new Date(selected.createdAt).toLocaleDateString()} · Due:{" "}
             {new Date(selected.dueDate).toLocaleDateString()}
           </p>
+          <span className={styles.sectionTitle}>Actions</span>
           <div className={styles.customerForm}>
             {selected.status === "DRAFT" && (
               <>
@@ -310,7 +294,10 @@ export default function InvoicesPage() {
                 <button onClick={() => void action(selected, "send")}>
                   Send
                 </button>
-                <button onClick={() => void action(selected, "delete")}>
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => void action(selected, "delete")}
+                >
                   Delete
                 </button>
               </>

@@ -1,13 +1,48 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Ledgerly global foundation.
+ *
+ * Fonts are self-hosted via `next/font/google` in `layout.tsx`, which attaches
+ * the CSS variables `--font-ui` (DM Sans) and `--font-display` (Manrope) to
+ * <html>. The design-token system below is shared by every page's CSS Module.
+ */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  /* ---- Surfaces ---- */
+  --canvas: #f6f8f7; /* page background */
+  --card: #ffffff; /* panels and sidebar */
+  --sidebar: #ffffff; /* sidebar background */
+  --sidebar-active: #edf5f0; /* active nav pill */
+  --sidebar-border: #e4eae7; /* sidebar / topbar rules */
+  --hover-surface: #f0f4f1; /* row hover fill */
+
+  /* ---- Brand ---- */
+  --green-600: #0f6b4f; /* primary accent */
+  --green-500: #1a8a66; /* hover accent */
+  --green-700: #0a523c; /* pressed / focus ring */
+  --green-50: #edf7f2; /* light tint fill */
+  --green-100: #d6efe3; /* light tint stroke */
+
+  /* ---- Text ---- */
+  --ink: #0d1614; /* primary text (AA+ on white) */
+  --muted: #5b6b66; /* secondary text (AA on white) */
+  --subtle: #8a9792; /* tertiary / placeholder text */
+
+  /* ---- Semantic ---- */
+  --border: #e4eae7; /* card + table dividers */
+  --danger: #c0392b;
+  --danger-bg: #fdf0ee;
+  --warning: #b8860b;
+  --warning-bg: #fef8eb;
+  --success: #0f6b4f;
+  --success-bg: #edf7f2;
+  --info: #1a5fb4;
+  --info-bg: #edf4fd;
+
+  /* ---- Elevation ---- */
+  --shadow-sm: 0 1px 2px rgba(15, 22, 20, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 22, 20, 0.06);
+  --shadow-lg: 0 8px 24px rgba(15, 22, 20, 0.08);
+  --shadow-hover: 0 12px 28px rgba(15, 22, 20, 0.1);
 }
 
 html {
@@ -24,9 +59,9 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: var(--font-ui, "DM Sans", system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -42,8 +77,7 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+::selection {
+  background: var(--green-100);
+  color: var(--green-700);
 }

@@ -2,6 +2,12 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 
+export interface DashboardBalance {
+  outstanding: number;
+  overdue: number;
+  paidThisMonth: number;
+}
+
 export interface OverviewStats {
   outstanding_cents: number;
   overdue_cents: number;
@@ -60,7 +66,7 @@ export class DashboardService {
     const tenantId = this.getTenantId();
     const now = new Date();
 
-    // Date ranges
+    // Date range bounds
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -72,9 +78,8 @@ export class DashboardService {
       const q = Math.floor(now.getMonth() / 3);
       rangeStart = new Date(now.getFullYear(), q * 3, 1);
     } else if (range === 'ytd') rangeStart = new Date(now.getFullYear(), 0, 1);
-    else if (range === 'all') rangeStart = new Date(1970, 0, 1);
 
-    // Stats queries (integer cents only)
+    // Aggregate stats (integer cents)
     const statsQuery = await this.prisma.$queryRaw<Array<{
       outstanding_cents: number | bigint;
       overdue_cents: number | bigint;
@@ -103,7 +108,14 @@ export class DashboardService {
     const paidLastMonth = Number(statsRow.paid_last_month_cents ?? 0);
     const deltaPct = paidLastMonth === 0 ? null : Math.round(((paidThisMonth - paidLastMonth) / paidLastMonth) * 100);
 
-    // Revenue by month (last 6 months, paid only)
+    // Last 6 month labels to fill sparse series
+    const months: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+
+    // Revenue by month (paid only, last 6 months)
     const revenueRows = await this.prisma.$queryRaw<Array<{ month: string; amount_cents: number | bigint }>>`
       SELECT
         TO_CHAR(paid_at, 'YYYY-MM') AS month,
@@ -119,19 +131,12 @@ export class DashboardService {
       month: String(r.month),
       amount_cents: Number(r.amount_cents ?? 0),
     }));
-
-    // Fill sparse months with 0
-    const months: string[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    }
     const revFilled: RevenueByMonth[] = months.map((m) => {
       const found = revenueByMonth.find((r) => r.month === m);
       return found ?? { month: m, amount_cents: 0 };
     });
 
-    // Invoice buckets (last 6 months)
+    // Invoice buckets by due month (last 6 months)
     const bucketRows = await this.prisma.$queryRaw<Array<{ month: string; outstanding_cents: number | bigint; overdue_cents: number | bigint }>>`
       SELECT
         TO_CHAR(due_date, 'YYYY-MM') AS month,
@@ -167,11 +172,11 @@ export class DashboardService {
       dueDate: inv.dueDate.toISOString(),
     }));
 
-    // Recent activity (5 events from outbox + invoice creation proxies)
+    // Recent activity: outbox events + invoice creations, newest first (5)
     const events = await this.prisma.$queryRaw<Array<{ id: string; type: string; text: string; created_at: Date }>>`
-      SELECT id, type, payload->>'text' AS text, created_at FROM outbox_events
+      SELECT id, type, payload->>'text' AS text, "createdAt" AS created_at FROM outbox_events
       WHERE tenant_id = ${tenantId}
-      ORDER BY created_at DESC
+      ORDER BY "createdAt" DESC
       LIMIT 5
     `;
     const eventsMapped: ActivityEvent[] = events.map((e) => ({
@@ -180,7 +185,6 @@ export class DashboardService {
       text: String(e.text ?? 'Activity'),
       createdAt: new Date(e.created_at).toISOString(),
     }));
-    // Supplement with invoice creations if < 5
     const invoiceCreates = await this.prisma.invoice.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
@@ -211,16 +215,22 @@ export class DashboardService {
     };
   }
 
-  async getBalance(): Promise<{ outstanding: number; overdue: number; paidThisMonth: number }> {
+  async getBalance(): Promise<DashboardBalance> {
     const tenantId = this.getTenantId();
     const startOfMonth = new Date();
-    startOfMonth.setDate(1); startOfMonth.setHours(0, 0, 0, 0);
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
     const rows = await this.prisma.$queryRaw<Array<{ outstanding: bigint | number; overdue: bigint | number; paidThisMonth: bigint | number }>>`
       SELECT
-        COALESCE(SUM(CASE WHEN i.status IN ('SENT', 'OVERDUE') THEN i.total_cents ELSE 0 END), 0)::int AS outstanding,
-        COALESCE(SUM(CASE WHEN i.status = 'OVERDUE' AND i.due_date < NOW() THEN i.total_cents ELSE 0 END), 0)::int AS overdue,
-        COALESCE((SELECT SUM(total_cents)::int FROM invoices WHERE tenant_id = ${tenantId} AND status = 'PAID' AND paid_at >= ${startOfMonth}), 0)::int AS "paidThisMonth"
+        COALESCE(SUM(CASE WHEN i.status = 'SENT' AND i.due_date >= NOW() THEN i.total_cents - COALESCE(p.paid, 0) ELSE 0 END), 0) AS outstanding,
+        COALESCE(SUM(CASE WHEN (i.status = 'OVERDUE' OR (i.status = 'SENT' AND i.due_date < NOW())) THEN i.total_cents - COALESCE(p.paid, 0) ELSE 0 END), 0) AS overdue,
+        COALESCE((SELECT SUM(amount) FROM payments WHERE tenant_id = ${tenantId} AND status = 'COMPLETED' AND "createdAt" >= ${startOfMonth}), 0) AS "paidThisMonth"
       FROM invoices i
+      LEFT JOIN (
+        SELECT invoice_id, SUM(amount) AS paid FROM payments
+        WHERE tenant_id = ${tenantId} AND status = 'COMPLETED'
+        GROUP BY invoice_id
+      ) p ON p.invoice_id = i.id
       WHERE i.tenant_id = ${tenantId} AND i.status IN ('SENT', 'OVERDUE')
     `;
     const row = rows[0] ?? { outstanding: 0, overdue: 0, paidThisMonth: 0 };
