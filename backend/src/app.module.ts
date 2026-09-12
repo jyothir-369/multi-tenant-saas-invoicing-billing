@@ -16,6 +16,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ReportsModule } from './reports/reports.module';
 import { PdfModule } from './pdf/pdf.module';
 import { HealthModule } from './health/health.module';
 
@@ -27,6 +28,7 @@ import { HealthModule } from './health/health.module';
     TenantsModule,
     UsersModule,
     AnalyticsModule,
+    ReportsModule,
     HealthModule,
 
     CustomersModule,

@@ -1,1 +1,4 @@
-import DashboardView from "../page"; export default function ReportsPage(){return <DashboardView/>}
+import ReportsClient from "./reports-client";
+export default function ReportsPage() {
+  return <ReportsClient />;
+}
