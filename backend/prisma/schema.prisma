@@ -21,6 +21,7 @@ customers          Customer[]
   users              User[]
   customerNotes     CustomerNote[]
   notificationReads  NotificationRead[]
+  auditLogs         AuditLog[]
 
   @@map("tenants")
 }
@@ -36,6 +37,7 @@ model User {
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   notificationReads NotificationRead[]
   customerNotes    CustomerNote[]
+  auditLogs        AuditLog[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -163,6 +165,24 @@ model CustomerNote {
 
   @@index([tenantId, customerId])
   @@map("customer_notes")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  actorUserId   String?  @map("actor_user_id")
+  action        String
+  entityType    String   @map("entity_type")
+  entityId      String   @map("entity_id")
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(desc)])
+  @@index([tenantId, entityType, entityId, createdAt(desc)])
+  @@map("audit_logs")
 }
 
 model NotificationRead {

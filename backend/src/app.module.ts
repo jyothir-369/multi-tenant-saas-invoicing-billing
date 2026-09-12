@@ -18,6 +18,7 @@ import { UsersModule } from './users/users.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { PdfModule } from './pdf/pdf.module';
 import { HealthModule } from './health/health.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { HealthModule } from './health/health.module';
     UsersModule,
     AnalyticsModule,
     HealthModule,
+    AuditModule,
     CustomersModule,
     InvoicesModule,
     PaymentsModule,

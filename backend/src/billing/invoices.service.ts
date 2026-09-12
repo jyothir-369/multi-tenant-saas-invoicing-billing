@@ -4,6 +4,7 @@ import { TenantContextService } from '../common/tenant-context.service';
 import { CreateInvoiceDto, UpdateInvoiceDto } from './dto';
 import { InvoiceStatus, Invoice } from '@prisma/client';
 
+import { AuditService } from '../audit/audit.service';
 export interface InvoiceWithDetails extends Invoice {
   customerName?: string;
   customerEmail?: string;
@@ -28,6 +29,7 @@ const VALID_STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
 export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -130,7 +132,8 @@ export class InvoicesService {
 
     await this.validateCustomerOwnership(dto.customerId, tenantId);
 
-    const invoice = await this.prisma.invoice.create({
+    const invoice = await this.prisma.$transaction(async (tx) => {
+      const inv = await (tx as any).invoice.create({
       data: {
         tenantId,
         customerId: dto.customerId,
@@ -146,11 +149,14 @@ export class InvoicesService {
       },
     });
 
-    return {
-      ...invoice,
-      customerName: invoice.customer.name,
-      customerEmail: invoice.customer.email,
-    };
+      await this.audit.record({ tenantId, action: 'INVOICE_CREATED', entityType: 'invoice', entityId: inv.id, metadata: { number: inv.invoiceNumber, status: inv.status, total_cents: inv.totalCents } }, tx);
+      return {
+        ...inv,
+        customerName: inv.customer.name,
+        customerEmail: inv.customer.email,
+      };
+    });
+    return invoice;
   }
 
   async findAll(query?: { status?: InvoiceStatus; search?: string; sort?: string; order?: 'asc' | 'desc'; page?: number; pageSize?: number }): Promise<{ data: InvoiceWithDetails[]; total: number }> {

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService }
+import { AuditService } from '../audit/audit.service'; from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { CreateCustomerDto, UpdateCustomerDto, CreateNoteDto, UpdateNoteDto } from './dto';
 import { Customer, CustomerNote } from '@prisma/client';
@@ -13,6 +14,7 @@ export interface CustomerWithBalance extends Customer {
 export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
