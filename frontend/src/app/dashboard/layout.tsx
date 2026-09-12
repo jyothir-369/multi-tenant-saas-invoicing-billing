@@ -2,23 +2,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
-import styles from "../page.module.css";
-
-const links = [
-  ["/dashboard", "⌂", "Overview"],
-  ["/dashboard/invoices", "▣", "Invoices"],
-  ["/dashboard/customers", "♙", "Customers"],
-  ["/dashboard/payments", "$", "Payments"],
-  ["/dashboard/reports", "◒", "Reports"],
-  ["/dashboard/settings", "⚙", "Settings"],
-];
+import Sidebar from "../../components/Sidebar";
+import Topbar from "../../components/Topbar";
+import CommandPalette from "../../components/CommandPalette";
+import DashboardErrorBoundary from "../../components/DashboardErrorBoundary";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [ready, setReady] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   useEffect(() => {
     queueMicrotask(() => {
       const token = localStorage.getItem("ledgerly_token");
@@ -29,81 +24,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
     });
   }, [router]);
-  function logout() {
-    localStorage.removeItem("ledgerly_token");
-    localStorage.removeItem("ledgerly_email");
-    router.replace("/");
-  }
+
   if (!ready)
     return (
-      <main className={styles.authPage}>
-        <div className={styles.empty}>Loading your workspace…</div>
+      <main className="min-h-screen flex items-center justify-center bg-[#f7faf8]">
+        <div className="text-[#78817e] font-medium">Loading your workspace…</div>
       </main>
     );
+
   return (
-    <main className={styles.app}>
-      <aside
-        className={`${styles.sidebar} ${menuOpen ? styles.sidebarOpen : ""}`}
-      >
-        <div className={styles.brand}>
-          <span className={styles.brandMark}>L</span>
-          <span>ledgerly</span>
-        </div>
-        <nav aria-label="Primary navigation">
-          {links.map(([href, icon, label]) => (
-            <Link
-              key={href}
-              className={pathname === href ? styles.activeNav : ""}
-              href={href}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span>{icon}</span>
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <div className={styles.sidebarBottom}>
-          <div className={styles.help}>
-            <span>?</span>
-            <div>
-              <b>Need help?</b>
-              <small>Support center coming soon</small>
-            </div>
-          </div>
-          <button className={styles.userMenu} onClick={logout}>
-            <span className={styles.avatar}>
-              {(email || "W").charAt(0).toUpperCase()}
-            </span>
-            <span>
-              <b>{email || "Workspace user"}</b>
-              <small>Sign out</small>
-            </span>
-            <span>⋮</span>
-          </button>
-        </div>
-      </aside>
-      <section className={styles.content}>
-        <header className={styles.topbar}>
-          <button
-            type="button"
-            className={styles.mobileBrand}
-            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            ☰
-          </button>
-          <div className={styles.breadcrumb}>
-            Workspace <span>/</span>{" "}
-            {links.find(([href]) => href === pathname)?.[2] || "Overview"}
-          </div>
-          <div className={styles.workspace}>
-            <span className={styles.avatar}>W</span>
-            <span>My workspace</span>
-          </div>
-        </header>
-        {children}
-      </section>
-    </main>
+    <div className="min-h-screen flex bg-[#f7faf8] font-sans text-[#18221f]">
+      <Sidebar mobileOpen={mobileOpen} onMobileToggle={() => setMobileOpen((v) => !v)} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar onMenuToggle={() => setMobileOpen((v) => !v)} />
+        <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+          <DashboardErrorBoundary>
+            {children}
+          </DashboardErrorBoundary>
+        </main>
+      </div>
+      <CommandPalette />
+    </div>
   );
 }
