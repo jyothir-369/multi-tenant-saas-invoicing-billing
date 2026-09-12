@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 export default function AuditLogClient() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

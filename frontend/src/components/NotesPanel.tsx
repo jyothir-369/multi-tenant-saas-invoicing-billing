@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
-import { api, formatMoney } from "../../../lib/api";
-import type { CustomerNote } from "../../../types";
+import { api, formatMoney } from "../lib/api";
+import type { CustomerNote } from "../types";
 
 export default function NotesPanel({
   customerId,

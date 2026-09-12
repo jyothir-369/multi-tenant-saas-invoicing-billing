@@ -1,7 +1,7 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { api } from "../../../lib/api";
+import { api } from "../../../../lib/api";
 
 type Customer = { id: string; name: string; isArchived: boolean };
 

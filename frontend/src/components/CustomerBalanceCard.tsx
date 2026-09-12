@@ -1,5 +1,5 @@
 "use client";
-import { formatMoney } from "../../../lib/api";
+import { formatMoney } from "../lib/api";
 
 export default function CustomerBalanceCard({
   balance,

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { formatMoney } from "../../../lib/api";
+import { formatMoney } from "../lib/api";
 import { formatRelativeTime } from "./formatRelativeTime";
 
 export type ActivityItem = { type: string; text: string; timestamp: string; icon?: string };
