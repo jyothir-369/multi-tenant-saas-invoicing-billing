@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { api, formatMoney } from "../../lib/api";
 import EmptyState from "../../components/EmptyState";
+import ErrorState from "../../components/ErrorState";
+import LoadingSkeleton from "../../components/LoadingSkeleton";
 
 type OverviewData = {
   range: string;
@@ -70,23 +72,13 @@ export default function OverviewPageClient() {
   if (loading) {
     return (
       <div>
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white border border-[#e7ece9] rounded-xl p-5 shadow-sm">
-              <div className="h-3 w-24 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded mb-3 animate-pulse" />
-              <div className="h-8 w-28 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded mb-2 animate-pulse" />
-              <div className="h-3 w-36 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+        <LoadingSkeleton height="card" />
+        <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="bg-white border border-[#e7ece9] rounded-xl p-5 shadow-sm">
-            <div className="h-5 w-32 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded mb-4 animate-pulse" />
-            <div className="h-48 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded animate-pulse" />
+            <LoadingSkeleton height="table" rows={6} />
           </div>
           <div className="bg-white border border-[#e7ece9] rounded-xl p-5 shadow-sm">
-            <div className="h-5 w-32 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded mb-4 animate-pulse" />
-            <div className="h-48 bg-gradient-to-r from-[#f0f4f1] to-[#fafcfb] rounded animate-pulse" />
+            <LoadingSkeleton height="table" rows={6} />
           </div>
         </div>
       </div>
@@ -94,13 +86,7 @@ export default function OverviewPageClient() {
   }
 
   if (error) {
-    return (
-      <div className="bg-[#fff8f5] border border-[#f0d7cf] rounded-xl p-4 text-[#8e4c3e]">
-        <b>Couldn’t load your overview</b>
-        <p className="text-sm mt-1">{error}</p>
-        <button onClick={() => void load()} className="mt-3 text-sm font-bold text-[#a25546] underline">Try again</button>
-      </div>
-    );
+    return <ErrorState description={error} onRetry={load} />;
   }
 
   const stats = data?.stats;

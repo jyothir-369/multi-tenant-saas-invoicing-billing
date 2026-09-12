@@ -2,6 +2,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "../../page.module.css";
 import { api, formatMoney } from "../../../lib/api";
+import EmptyState from "../../../components/EmptyState";
+import ErrorState from "../../../components/ErrorState";
+import LoadingSkeleton from "../../../components/LoadingSkeleton";
 type Invoice = {
   id: string;
   invoiceNumber?: string;
@@ -157,7 +160,9 @@ export default function InvoicesPage() {
           <p>{message}</p>
         </div>
       )}
-      {error && (
+      {error ? <ErrorState description={error} onRetry={load} /> : null}
+      {/* removed raw error */}
+      {/* previous error block removed */}
         <div className={styles.alert}>
           <span>!</span>
           <div>
