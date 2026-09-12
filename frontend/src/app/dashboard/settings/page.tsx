@@ -90,7 +90,7 @@ export default function SettingsPage() {
         </div>
       )}
       {error && (
-        <div className={styles.alert}>
+        <div className={`${styles.alert} ${styles.alertError}`}>
           <span>!</span>
           <div>
             <p>{error}</p>
@@ -121,8 +121,12 @@ export default function SettingsPage() {
             {saving ? "Saving…" : "Save changes"}
           </button>
         </form>
+        <span className={styles.sectionTitle}>Plan</span>
         <p>
-          Plan: <b>{tenant?.plan || "Unavailable"}</b>
+          <b>{tenant?.plan || "Unavailable"}</b>
+          {profile?.role !== "OWNER" && (
+            <small>Billing changes are restricted to workspace owners.</small>
+          )}
         </p>
       </section>
       <section className={styles.panel}>
@@ -132,13 +136,16 @@ export default function SettingsPage() {
             <p>Authenticated identity for this tenant.</p>
           </div>
         </div>
+        <span className={styles.sectionTitle}>Signed in as</span>
         <p>
           <b>{profile?.email}</b>
         </p>
+        <span className={styles.sectionTitle}>Role</span>
         <p>
-          Role: <b>{profile?.role}</b>
+          <b>{profile?.role}</b>
         </p>
-        <p>Tenant: {profile?.tenantName || tenant?.name}</p>
+        <span className={styles.sectionTitle}>Tenant</span>
+        <p>{profile?.tenantName || tenant?.name}</p>
       </section>
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
@@ -148,16 +155,32 @@ export default function SettingsPage() {
           </div>
         </div>
         {stats ? (
-          <p>
-            {stats.totalUsers} users · {stats.totalCustomers} customers ·{" "}
-            {stats.totalInvoices} invoices · {stats.totalPayments} payments
-          </p>
+          <div className={styles.kpis} style={{ marginBottom: 0 }}>
+            {[
+              ["Users", stats.totalUsers],
+              ["Customers", stats.totalCustomers],
+              ["Invoices", stats.totalInvoices],
+              ["Payments", stats.totalPayments],
+            ].map(([l, v]) => (
+              <article className={styles.kpi} key={String(l)}>
+                <div className={styles.kpiTop}>
+                  <span>{l}</span>
+                </div>
+                <strong>{v.toLocaleString()}</strong>
+              </article>
+            ))}
+          </div>
         ) : (
           <div className={styles.empty}>Usage data unavailable.</div>
         )}
       </section>
       <section className={styles.panel}>
-        <h2>Unavailable settings</h2>
+        <div className={styles.panelHeader}>
+          <div>
+            <h2>Unavailable settings</h2>
+            <p>Workflows that are not yet wired up in the frontend.</p>
+          </div>
+        </div>
         <p>
           Password changes, team management, billing plan changes, and
           notification preferences do not currently have supported frontend

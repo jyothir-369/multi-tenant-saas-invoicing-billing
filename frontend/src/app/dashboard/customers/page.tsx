@@ -99,7 +99,7 @@ export default function CustomersPage() {
         </div>
       )}
       {error && (
-        <div className={styles.alert}>
+        <div className={`${styles.alert} ${styles.alertError}`}>
           <span>!</span>
           <div>
             <p>{error}</p>
@@ -137,6 +137,7 @@ export default function CustomersPage() {
           {editing && (
             <button
               type="button"
+              className={styles.dangerButton}
               onClick={() => {
                 setEditing(null);
                 setName("");
@@ -176,7 +177,14 @@ export default function CustomersPage() {
                   {c.name.charAt(0).toUpperCase()}
                 </span>
                 <span>
-                  <b>{c.name}</b>
+                  <b>
+                    {c.name}
+                    {c.isArchived && (
+                      <span className={`${styles.tag} ${styles.archived}`}>
+                        Archived
+                      </span>
+                    )}
+                  </b>
                   <small>{c.email}</small>
                 </span>
                 <strong>{formatMoney(c.balance)}</strong>
@@ -189,17 +197,27 @@ export default function CustomersPage() {
                 >
                   Edit
                 </button>
-                <button
-                  onClick={() =>
-                    void mutate(c, c.isArchived ? "unarchive" : "archive")
-                  }
-                >
-                  {c.isArchived ? "Unarchive" : "Archive"}
-                </button>
-                {c.isArchived && (
-                  <button onClick={() => void mutate(c, "delete")}>
-                    Delete
+                {!c.isArchived && (
+                  <button
+                    onClick={() => void mutate(c, "archive")}
+                    title="Archive this customer"
+                  >
+                    Archive
                   </button>
+                )}
+                {c.isArchived && (
+                  <>
+                    <button onClick={() => void mutate(c, "unarchive")}>
+                      Restore
+                    </button>
+                    <button
+                      className={styles.dangerButton}
+                      onClick={() => void mutate(c, "delete")}
+                      title="Permanently delete this customer"
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
             ))}

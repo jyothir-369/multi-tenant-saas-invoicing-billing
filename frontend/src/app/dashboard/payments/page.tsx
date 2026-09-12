@@ -35,6 +35,18 @@ const statuses = [
   "REFUNDED",
   "PARTIALLY_REFUNDED",
 ];
+function paymentTone(status: string) {
+  const s = status.toUpperCase();
+  if (s === "COMPLETED")
+    return { badge: `${styles.badge} ${styles.paid}`, label: "Completed" };
+  if (s === "PENDING")
+    return { badge: `${styles.badge} ${styles.pending}`, label: "Pending" };
+  if (s === "FAILED")
+    return { badge: `${styles.badge} ${styles.overdue}`, label: "Failed" };
+  if (s === "REFUNDED" || s === "PARTIALLY_REFUNDED")
+    return { badge: `${styles.badge}`, label: s.replaceAll("_", " ") };
+  return { badge: `${styles.badge}`, label: s.replaceAll("_", " ") };
+}
 export default function PaymentsPage() {
   const [p, setP] = useState<Payment[]>([]),
     [s, setS] = useState<Stats>(),
@@ -188,7 +200,7 @@ export default function PaymentsPage() {
         </div>
       )}
       {error && (
-        <div className={styles.alert}>
+        <div className={`${styles.alert} ${styles.alertError}`}>
           <span>!</span>
           <div>
             <p>{error}</p>
@@ -197,18 +209,34 @@ export default function PaymentsPage() {
         </div>
       )}
       <section className={styles.kpis}>
-        {[
-          ["Payments", s?.totalPayments || 0],
-          ["Collected", formatMoney(s?.completedAmount || 0)],
-          ["Pending", formatMoney(s?.pendingAmount || 0)],
-          ["Refunded", formatMoney(s?.refundedAmount || 0)],
-        ].map(([l, v]) => (
-          <article className={styles.kpi} key={String(l)}>
-            <span>{l}</span>
-            <strong>{v}</strong>
-            <small>Current tenant workspace</small>
-          </article>
-        ))}
+        <article className={styles.kpi}>
+          <div className={styles.kpiTop}>
+            <span>Total payments</span>
+          </div>
+          <strong>{(s?.totalPayments || 0).toLocaleString()}</strong>
+          <small>All intents in your workspace</small>
+        </article>
+        <article className={styles.kpi}>
+          <div className={styles.kpiTop}>
+            <span>Collected</span>
+          </div>
+          <strong>{formatMoney(s?.completedAmount || 0)}</strong>
+          <small>Completed payments</small>
+        </article>
+        <article className={styles.kpi}>
+          <div className={styles.kpiTop}>
+            <span>Pending</span>
+          </div>
+          <strong>{formatMoney(s?.pendingAmount || 0)}</strong>
+          <small>Awaiting confirmation</small>
+        </article>
+        <article className={styles.kpi}>
+          <div className={styles.kpiTop}>
+            <span>Refunded</span>
+          </div>
+          <strong>{formatMoney(s?.refundedAmount || 0)}</strong>
+          <small>Returned to customers</small>
+        </article>
       </section>
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
@@ -246,8 +274,8 @@ export default function PaymentsPage() {
                   </button>
                   <small>{x.customerName || "Customer"}</small>
                 </span>
-                <span className={styles.badge}>
-                  {x.status.replaceAll("_", " ")}
+                <span className={paymentTone(x.status).badge}>
+                  {paymentTone(x.status).label}
                 </span>
                 <b>{formatMoney(x.amount)}</b>
                 <small>{new Date(x.createdAt).toLocaleDateString()}</small>
@@ -268,28 +296,44 @@ export default function PaymentsPage() {
             <p>Generate an intent for a sent or overdue invoice.</p>
           </div>
         </div>
-        {invoices
-          .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
-          .map((i) => (
-            <div className={styles.customerRow} key={i.id}>
-              <span>
-                <b>{i.invoiceNumber || i.id.slice(0, 8)}</b>
-                <small>
-                  {i.customerName || "Customer"} ·{" "}
-                  {formatMoney(i.balance ?? i.amount)}
-                </small>
-              </span>
-              <button disabled={busy} onClick={() => void intent(i)}>
-                Create Stripe intent
-              </button>
-            </div>
-          ))}
+        {invoices.filter((i) => i.status === "SENT" || i.status === "OVERDUE")
+          .length ? (
+          <div className={styles.customerList}>
+            {invoices
+              .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
+              .map((i) => (
+                <div className={styles.customerRow} key={i.id}>
+                  <span>
+                    <b>{i.invoiceNumber || i.id.slice(0, 8)}</b>
+                    <small>
+                      {i.customerName || "Customer"} ·{" "}
+                      {formatMoney(i.balance ?? i.amount)}
+                    </small>
+                  </span>
+                  <button disabled={busy} onClick={() => void intent(i)}>
+                    Create Stripe intent
+                  </button>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div className={styles.empty}>
+            <b>No payable invoices</b>
+            <p>Send an invoice first, then collect from here.</p>
+          </div>
+        )}
         {clientSecret && (
-          <p>
-            Intent created. Stripe.js/Elements is not installed in this
-            frontend, so confirmation requires the existing Stripe client
-            integration or dependency configuration.
-          </p>
+          <div className={styles.alert}>
+            <span>✓</span>
+            <div>
+              <b>Payment intent created</b>
+              <p>
+                Stripe.js/Elements is not bundled in this frontend, so the
+                intent is ready but needs the Stripe client integration to
+                confirm it.
+              </p>
+            </div>
+          </div>
         )}
       </section>
       {selected && (
@@ -304,10 +348,12 @@ export default function PaymentsPage() {
             </div>
             <button onClick={() => setSelected(null)}>Close</button>
           </div>
+          <span className={styles.sectionTitle}>Summary</span>
           <p>
             Amount: <b>{formatMoney(selected.amount)}</b> · Created:{" "}
             {new Date(selected.createdAt).toLocaleString()}
           </p>
+          <span className={styles.sectionTitle}>Actions</span>
           <div className={styles.customerForm}>
             {selected.status === "COMPLETED" && (
               <>
