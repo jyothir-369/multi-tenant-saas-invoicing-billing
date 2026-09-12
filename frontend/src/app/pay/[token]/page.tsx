@@ -2,6 +2,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export default function PayPage() {
   const params = useParams();
   const token = params?.token as string;
@@ -11,7 +13,7 @@ export default function PayPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`http://localhost:4000/pay/${token}`)
+    fetch(`${API}/pay/${token}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
@@ -23,7 +25,7 @@ export default function PayPage() {
 
   const simulate = async () => {
     try {
-      const r = await fetch(`http://localhost:4000/pay/${token}/simulate`, {
+      const r = await fetch(`${API}/pay/${token}/simulate`, {
         method: "POST",
         headers: { "x-simulate": "true" },
       });

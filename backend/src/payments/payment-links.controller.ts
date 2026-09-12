@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,7 +31,7 @@ export class PaymentLinksController {
   ) {
     const tenantId = user.tenantId;
     const invoice = await this.prisma.invoice.findFirst({ where: { id: body.invoice_id, tenantId } });
-    if (!invoice) throw new Error('Invoice not found');
+    if (!invoice) throw new NotFoundException('Invoice not found');
     // Idempotency: return existing PENDING non-expired link
     const existing = await this.prisma.paymentLink.findFirst({
       where: { invoiceId: body.invoice_id, tenantId, status: 'PENDING' },

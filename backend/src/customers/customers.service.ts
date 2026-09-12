@@ -96,7 +96,7 @@ export class CustomersService {
     const existing = await this.prisma.customer.findFirst({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException(`Customer with ID ${id} not found`);
     const customer = await this.prisma.customer.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         name: dto.name ?? existing.name,
         email: dto.email ?? existing.email,
@@ -124,7 +124,7 @@ export class CustomersService {
     const tenantId = this.getTenantId();
     const existing = await this.prisma.customer.findFirst({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException(`Customer with ID ${id} not found`);
-    await this.prisma.customer.delete({ where: { id } });
+    await this.prisma.customer.delete({ where: { id, tenantId } });
   }
 
   // Notes
@@ -165,7 +165,7 @@ export class CustomersService {
       if (!content) throw new BadRequestException('Note content is required');
       if (content.length > 5000) throw new BadRequestException('Note content exceeds 5000 characters');
       return this.prisma.customerNote.update({
-        where: { id: noteId },
+        where: { id: noteId, tenantId },
         data: { content },
         include: { user: { select: { email: true, name: true } } },
       });
@@ -178,7 +178,7 @@ export class CustomersService {
     await this.checkCustomerExists(id, tenantId);
     const note = await this.prisma.customerNote.findFirst({ where: { id: noteId, customerId: id, tenantId } });
     if (!note) throw new NotFoundException('Note not found');
-    await this.prisma.customerNote.delete({ where: { id: noteId } });
+    await this.prisma.customerNote.delete({ where: { id: noteId, tenantId } });
     return { deleted: true };
   }
 

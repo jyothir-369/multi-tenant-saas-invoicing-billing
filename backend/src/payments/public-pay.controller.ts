@@ -1,3 +1,4 @@
+// Public endpoint: return ONLY payer-facing fields. No internal IDs.
 import {
   Controller,
   Get,
@@ -20,19 +21,19 @@ export class PublicPayController {
   async getLink(@Param('token') token: string) {
     const link = await this.prisma.paymentLink.findUnique({
       where: { token },
-      include: { invoice: { include: { customer: true, tenant: true } } },
+      include: { invoice: { select: { number: true, totalCents: true, status: true, dueDate: true, issuedAt: true, customer: { select: { name: true } }, tenant: { select: { name: true } } } } },
     });
     if (!link) throw new NotFoundException('Payment link not found');
     if (link.status !== 'PENDING') throw new NotFoundException('Link expired or cancelled');
     if (new Date(link.expiresAt) < new Date()) throw new NotFoundException('Link expired');
 
     return {
-      invoiceNumber: link.invoice.id, // internal only; ideally invoice number from DB
+      invoiceNumber: link.invoice.number || 'INV',
       customerName: link.invoice.customer.name,
-      amountCents: link.amountCents,
-      status: link.status,
+      amountCents: link.invoice.totalCents,
+      status: link.invoice.status,
       expiresAt: link.expiresAt,
-      tenantName: link.invoice.tenant.name,
+      businessName: link.invoice.tenant.name || 'Business',
     };
   }
 
@@ -47,7 +48,7 @@ export class PublicPayController {
 
     const link = await this.prisma.paymentLink.findUnique({
       where: { token },
-      include: { invoice: true },
+      include: { invoice: { select: { number: true, totalCents: true, status: true, dueDate: true, issuedAt: true, customer: { select: { name: true } }, tenant: { select: { name: true } } } } },
     });
     if (!link) throw new NotFoundException('Payment link not found');
     if (link.status !== 'PENDING') throw new NotFoundException('Link not active');
