@@ -47,3 +47,4 @@
 .authCard input { min-height: 46px; transition: border-color .15s ease, box-shadow .15s ease; }
 @media (prefers-reduced-motion: reduce) { .app .sidebar nav a, .app .kpi, .authCard input { transition: none; } }
 @media (max-width: 650px) { .app .main { padding-top: 28px; } .app .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app .kpi { min-width: 0; } }
+/* Settings tab styles */ .tabRow { display:flex; gap:6px; border-bottom:1px solid #e7ece9; margin-bottom:22px; } .tab { background:none; border:0; border-bottom:2px solid transparent; padding:8px 14px; font-size:13px; font-weight:600; color:#78817e; cursor:pointer; } .tab:hover { color:#23745a; } .tabActive { background:none; border:0; border-bottom:2px solid #23745a; padding:8px 14px; font-size:13px; font-weight:700; color:#23745a; }
