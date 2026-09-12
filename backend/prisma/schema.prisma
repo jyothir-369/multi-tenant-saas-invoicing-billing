@@ -19,6 +19,7 @@ customers          Customer[]
   events             OutboxEvent[]
   payments           Payment[]
   users              User[]
+  customerNotes     CustomerNote[]
   notificationReads  NotificationRead[]
 
   @@map("tenants")
@@ -34,6 +35,7 @@ model User {
   updatedAt    DateTime @updatedAt
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   notificationReads NotificationRead[]
+  customerNotes    CustomerNote[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -45,10 +47,12 @@ model Customer {
   name       String
   email      String
   isArchived Boolean   @default(false) @map("is_archived")
+  archivedAt DateTime?  @map("archived_at")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoices   Invoice[]
+  invoices      Invoice[]
+  notes         CustomerNote[]
 
   @@map("customers")
 }
@@ -143,6 +147,22 @@ enum InvoiceStatus {
   PAID
   OVERDUE
   VOID
+}
+
+model CustomerNote {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  customerId String  @map("customer_id")
+  authorUserId String @map("author_user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, customerId])
+  @@map("customer_notes")
 }
 
 model NotificationRead {
