@@ -218,13 +218,13 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
               {
                 description: `Invoice ${payload.invoiceNumber || payload.invoiceId}`,
                 quantity: 1,
-                unitPrice: invoice.amount,
-                total: invoice.amount,
+                unitPrice: invoice.totalCents,
+                total: invoice.totalCents,
               },
             ],
-            subtotal: invoice.amount,
+            subtotal: invoice.totalCents,
             tax: 0,
-            total: invoice.amount,
+            total: invoice.totalCents,
             tenantName: invoice.tenant.name,
             tenantEmail: invoice.tenant.id, // In real app, store email in tenant
             paymentLink: payload.paymentLink,
@@ -305,7 +305,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
             data: {
               tenantId: invoice.tenantId,
               customerId: invoice.customerId,
-              amount: invoice.amount,
+              totalCents: invoice.totalCents,
               dueDate: this.calculateNextDueDate(invoice.recurrenceRule!),
               recurrenceRule: invoice.recurrenceRule,
               status: 'SENT',

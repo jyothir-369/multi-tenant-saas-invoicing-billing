@@ -20,8 +20,8 @@ export class DashboardService {
     startOfMonth.setHours(0, 0, 0, 0);
     const rows = await this.prisma.$queryRaw<Array<{ outstanding: bigint | number; overdue: bigint | number; paidThisMonth: bigint | number }>>`
       SELECT
-        COALESCE(SUM(CASE WHEN i.status = 'SENT' AND i.due_date >= NOW() THEN i.amount - COALESCE(p.paid, 0) ELSE 0 END), 0) AS outstanding,
-        COALESCE(SUM(CASE WHEN (i.status = 'OVERDUE' OR (i.status = 'SENT' AND i.due_date < NOW())) THEN i.amount - COALESCE(p.paid, 0) ELSE 0 END), 0) AS overdue,
+        COALESCE(SUM(CASE WHEN i.status = 'SENT' AND i.due_date >= NOW() THEN i.total_cents - COALESCE(p.paid, 0) ELSE 0 END), 0) AS outstanding,
+        COALESCE(SUM(CASE WHEN (i.status = 'OVERDUE' OR (i.status = 'SENT' AND i.due_date < NOW())) THEN i.total_cents - COALESCE(p.paid, 0) ELSE 0 END), 0) AS overdue,
         COALESCE((SELECT SUM(amount) FROM payments WHERE tenant_id = ${tenantId} AND status = 'COMPLETED' AND "createdAt" >= ${startOfMonth}), 0) AS "paidThisMonth"
       FROM invoices i
       LEFT JOIN (

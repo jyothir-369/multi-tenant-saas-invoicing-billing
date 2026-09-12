@@ -5,7 +5,7 @@ export class UpdateInvoiceDto {
   @IsOptional()
   @IsInt()
   @IsPositive()
-  amount?: number;
+  totalCents?: number;
 
   @IsOptional()
   @IsDateString()

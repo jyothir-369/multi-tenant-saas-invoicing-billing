@@ -133,7 +133,7 @@ export class CustomersService {
       },
     });
 
-    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalCents, 0);
     const totalPaid = payments.reduce((sum, pay) => sum + pay.amount, 0);
 
     return totalInvoiced - totalPaid;

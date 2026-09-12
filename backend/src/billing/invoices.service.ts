@@ -115,7 +115,7 @@ export class InvoicesService {
       data: {
         tenantId,
         customerId: dto.customerId,
-        amount: dto.amount,
+        totalCents: dto.totalCents,
         dueDate: new Date(dto.dueDate),
         recurrenceRule: dto.recurrenceRule,
         status: InvoiceStatus.DRAFT,
@@ -157,7 +157,7 @@ export class InvoicesService {
       ...invoice,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
-      balance: invoice.amount - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
+      balance: invoice.totalCents - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
     }));
   }
 
@@ -184,7 +184,7 @@ export class InvoicesService {
       ...invoice,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
-      balance: invoice.amount - totalPaid,
+      balance: invoice.totalCents - totalPaid,
     };
   }
 
@@ -203,12 +203,12 @@ export class InvoicesService {
       this.validateStatusTransition(existing.status, dto.status as InvoiceStatus);
     }
 
-    if (existing.status !== InvoiceStatus.DRAFT && (dto.amount || dto.dueDate || dto.recurrenceRule)) {
-      throw new BadRequestException('Can only modify amount, due date, and recurrence rule for DRAFT invoices');
+    if (existing.status !== InvoiceStatus.DRAFT && (dto.totalCents || dto.dueDate || dto.recurrenceRule)) {
+      throw new BadRequestException('Can only modify total, due date, and recurrence rule for DRAFT invoices');
     }
 
     const updateData: any = {};
-    if (dto.amount !== undefined) updateData.amount = dto.amount;
+    if (dto.totalCents !== undefined) updateData.totalCents = dto.totalCents;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
     if (dto.recurrenceRule !== undefined) updateData.recurrenceRule = dto.recurrenceRule;
     if (dto.status !== undefined) updateData.status = dto.status;
@@ -230,7 +230,7 @@ export class InvoicesService {
       ...invoice,
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
-      balance: invoice.amount - totalPaid,
+      balance: invoice.totalCents - totalPaid,
     };
   }
 
@@ -263,7 +263,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_SENT', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       dueDate: invoice.dueDate.toISOString(),
     });
 
@@ -273,7 +273,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -304,7 +304,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_PAID', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       paidAt: new Date().toISOString(),
     });
 
@@ -314,7 +314,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -345,7 +345,7 @@ export class InvoicesService {
     await this.createOutboxEvent(tenantId, 'INVOICE_OVERDUE', {
       invoiceId: id,
       customerId: invoice.customerId,
-      amount: invoice.amount,
+      amount: invoice.totalCents,
       dueDate: invoice.dueDate.toISOString(),
     });
 
@@ -355,7 +355,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -389,7 +389,7 @@ export class InvoicesService {
       ...updated,
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
-      balance: updated.amount - totalPaid,
+      balance: updated.totalCents - totalPaid,
     };
   }
 
@@ -436,7 +436,7 @@ export class InvoicesService {
 
     for (const invoice of invoices) {
       const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-      const balance = invoice.amount - totalPaid;
+      const balance = invoice.totalCents - totalPaid;
 
       if (invoice.status === InvoiceStatus.SENT) {
         if (new Date(invoice.dueDate) < now) {
