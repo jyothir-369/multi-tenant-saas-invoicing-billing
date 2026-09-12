@@ -16,6 +16,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { PdfModule } from './pdf/pdf.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { HealthModule } from './health/health.module';
     PaymentsModule,
     NotificationsModule,
     DashboardModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [

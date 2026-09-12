@@ -14,6 +14,27 @@ type Invoice = {
   dueDate: string;
 };
 type Customer = { id: string; name: string; isArchived: boolean };
+async function downloadInvoicePdf(id: string, number?: string) {
+  try {
+    const res = await fetch(`/invoices/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${window.localStorage.getItem("ledgerly_token") || ""}` },
+    });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `INV-${number || id.slice(0, 4)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    // Show toast message
+    alert("Invoice PDF downloading…");
+  } catch (e: any) {
+    alert("Failed to download PDF: " + (e?.message || e));
+  }
+}
 const statuses = ["ALL", "DRAFT", "SENT", "PAID", "OVERDUE", "VOID"];
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]),
@@ -236,6 +257,15 @@ export default function InvoicesPage() {
                     {i.invoiceNumber || `Invoice ${i.id.slice(0, 6)}`}
                   </button>
                   <small>{i.customerName || "Customer"}</small>
+                  <button
+                    aria-label="Download PDF"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await downloadInvoicePdf(i.id, i.invoiceNumber || i.id);
+                    }}
+                  >
+                    ↓ PDF
+                  </button>
                 </span>
                 <span className={styles.badge}>{i.status}</span>
                 <b>{formatMoney(i.balance ?? i.amount)}</b>
