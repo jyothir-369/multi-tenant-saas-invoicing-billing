@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { Fragment, ReactNode, useEffect, useState } from "react";
 import styles from "../page.module.css";
 import NotificationBell from "./NotificationBell";
 
@@ -124,11 +124,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     settings: "Workspace",
   };
   const segments = pathname.split("/").filter(Boolean);
-  const crumbs: string[] = ["Workspace"];
+  type Crumb = { label: string; href: string };
+  const crumbs: Crumb[] = [{ label: "Workspace", href: "/dashboard" }];
+  let pathSoFar = "/dashboard";
   for (let i = 1; i < segments.length; i += 1) {
     const s = segments[i];
-    if (SEGMENT_LABELS[s]) crumbs.push(SEGMENT_LABELS[s]);
-    else if (i > 1) crumbs.push(DETAIL_NOUN[segments[i - 1]] || "Detail");
+    pathSoFar += `/${s}`;
+    if (SEGMENT_LABELS[s])
+      crumbs.push({ label: SEGMENT_LABELS[s], href: pathSoFar });
+    else if (i > 1)
+      crumbs.push({
+        label: DETAIL_NOUN[segments[i - 1]] || "Detail",
+        href: pathname,
+      });
   }
   return (
     <main className={styles.app}>
@@ -216,7 +224,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               )}
             </svg>
           </button>
-          <div className={styles.breadcrumb}>{crumbs.join(" / ")}</div>
+          <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+            {crumbs.map((c, idx) => (
+              <Fragment key={`${c.href}-${c.label}-${idx}`}>
+                {idx > 0 && (
+                  <span className={styles.breadcrumbSeparator} aria-hidden="true">
+                    /
+                  </span>
+                )}
+                {idx === crumbs.length - 1 ? (
+                  <span className={styles.breadcrumbCurrent} aria-current="page">
+                    {c.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={c.href}
+                    className={styles.breadcrumbLink}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {c.label}
+                  </Link>
+                )}
+              </Fragment>
+            ))}
+          </nav>
           <div className={styles.topbarRight}>
             <NotificationBell />
             <div className={styles.workspace}>

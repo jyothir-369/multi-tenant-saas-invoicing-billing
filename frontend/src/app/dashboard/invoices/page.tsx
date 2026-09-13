@@ -225,7 +225,7 @@ export default function InvoicesPage() {
           <div className={styles.table}>
             {shown.map((i) => (
               <div
-                className={styles.tableRow}
+                className={`${styles.tableRow} ${styles.tableRowWide}`}
                 key={i.id}
                 role="button"
                 tabIndex={0}
