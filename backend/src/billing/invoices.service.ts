@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantContextService } from '../common/tenant-context.service';
 import { CreateInvoiceDto, UpdateInvoiceDto } from './dto';
@@ -11,6 +12,7 @@ export interface InvoiceWithDetails extends Invoice {
   balance?: number;
   invoiceNumber?: string;
   amount?: number;
+  paymentLink?: string;
 }
 
 interface InvoiceCounter {
@@ -52,34 +54,31 @@ export class InvoicesService {
     }
   }
 
-  private async generateInvoiceNumber(tenantId: string): Promise<string> {
+  private async generateInvoiceNumber(tenantId: string, tx: any = this.prisma): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `INV-${year}-`;
 
-    const counter = await this.prisma.$queryRaw<InvoiceCounter[]>`
-      SELECT id, tenant_id as "tenantId", last_number as "lastNumber"
+    const counter = await tx.$queryRaw<InvoiceCounter[]>`
+      SELECT id, tenant_id as "tenantId", year, last_number as "lastNumber"
       FROM invoice_counters
       WHERE tenant_id = ${tenantId} AND year = ${year}
       FOR UPDATE
     `.catch(() => []);
 
-    let lastNumber = 0;
-
     if (counter.length > 0) {
-      lastNumber = counter[0].lastNumber;
-      await this.prisma.$executeRaw`
+      await tx.$executeRaw`
         UPDATE invoice_counters
         SET last_number = last_number + 1
         WHERE tenant_id = ${tenantId} AND year = ${year}
       `;
-    } else {
-      await this.prisma.$executeRaw`
-        INSERT INTO invoice_counters (id, tenant_id, year, last_number)
-        VALUES (gen_random_uuid(), ${tenantId}, ${year}, 1)
-      `;
+      return `${prefix}${String(counter[0].lastNumber + 1).padStart(6, '0')}`;
     }
 
-    return `${prefix}${String(lastNumber + 1).padStart(6, '0')}`;
+    await tx.$executeRaw`
+      INSERT INTO invoice_counters (id, tenant_id, year, last_number)
+      VALUES (gen_random_uuid(), ${tenantId}, ${year}, 1)
+    `;
+    return `${prefix}${String(1).padStart(6, '0')}`;
   }
 
   async recalculateTotals(invoiceId: string, tenantId: string): Promise<void> {
@@ -129,19 +128,68 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * A customer-facing payment link for a sent invoice. Reuses an existing
+   * unexpired PENDING link so repeated calls (send + refresh) stay idempotent.
+   */
+  private async resolvePaymentLink(
+    invoiceId: string,
+    tenantId: string,
+  ): Promise<string | undefined> {
+    const existing = await this.prisma.paymentLink.findFirst({
+      where: { invoiceId, tenantId, status: 'PENDING' },
+    });
+    if (existing && new Date(existing.expiresAt) > new Date()) {
+      return `${this.frontendUrl()}/pay/${existing.token}`;
+    }
+    return undefined;
+  }
+
+  private async createPaymentLink(
+    invoiceId: string,
+    tenantId: string,
+    totalCents: number,
+  ): Promise<string> {
+    const existing = await this.prisma.paymentLink.findFirst({
+      where: { invoiceId, tenantId, status: 'PENDING' },
+    });
+    if (existing && new Date(existing.expiresAt) > new Date()) {
+      return `${this.frontendUrl()}/pay/${existing.token}`;
+    }
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.paymentLink.create({
+      data: {
+        tenantId,
+        invoiceId,
+        token,
+        amountCents: totalCents || 0,
+        status: 'PENDING',
+        expiresAt: new Date(Date.now() + 30 * 86400000),
+      },
+    });
+    return `${this.frontendUrl()}/pay/${token}`;
+  }
+
+  private frontendUrl(): string {
+    return process.env.FRONTEND_URL || 'http://localhost:3000';
+  }
+
   async create(dto: CreateInvoiceDto): Promise<InvoiceWithDetails> {
     const tenantId = this.getTenantId();
 
     await this.validateCustomerOwnership(dto.customerId, tenantId);
 
     const invoice = await this.prisma.$transaction(async (tx) => {
+      const number = await this.generateInvoiceNumber(tenantId, tx);
       const inv = await (tx as any).invoice.create({
       data: {
         tenantId,
         customerId: dto.customerId,
+        number,
         totalCents: dto.amount, // DTO amount is in cents (mapped to totalCents below)
         dueDate: new Date(dto.dueDate),
         recurrenceRule: dto.recurrenceRule,
+        requiresSignature: dto.requiresSignature ?? false,
         status: InvoiceStatus.DRAFT,
       },
       include: {
@@ -204,6 +252,18 @@ export class InvoicesService {
       this.prisma.invoice.count({ where }),
     ]);
 
+    const links = invoices.length
+      ? await this.prisma.paymentLink.findMany({
+          where: { tenantId, invoiceId: { in: invoices.map((i) => i.id) }, status: 'PENDING' },
+        })
+      : [];
+    const now = Date.now();
+    const linkByInvoice = new Map(
+      links
+        .filter((l) => new Date(l.expiresAt).getTime() > now)
+        .map((l) => [l.invoiceId, `${this.frontendUrl()}/pay/${l.token}`]),
+    );
+
     return {
       data: invoices.map((invoice) => ({
         ...invoice,
@@ -212,6 +272,7 @@ export class InvoicesService {
         balance: (invoice.totalCents || 0) - invoice.payments.reduce((sum, p) => sum + p.amount, 0),
         invoiceNumber: invoice.number || `INV-${invoice.id.slice(0, 6).toUpperCase()}`,
         amount: invoice.totalCents || 0,
+        paymentLink: linkByInvoice.get(invoice.id),
       })),
       total,
     };
@@ -244,6 +305,7 @@ export class InvoicesService {
       invoiceNumber:
         invoice.number || `INV-${invoice.id.slice(0, 6).toUpperCase()}`,
       amount: invoice.totalCents,
+      paymentLink: await this.resolvePaymentLink(id, tenantId),
     };
   }
 
@@ -262,14 +324,15 @@ export class InvoicesService {
       this.validateStatusTransition(existing.status, dto.status as InvoiceStatus);
     }
 
-    if (existing.status !== InvoiceStatus.DRAFT && (dto.amount || dto.dueDate || dto.recurrenceRule)) {
-      throw new BadRequestException('Can only modify amount, due date, and recurrence rule for DRAFT invoices');
+    if (existing.status !== InvoiceStatus.DRAFT && (dto.amount || dto.dueDate || dto.recurrenceRule || dto.requiresSignature !== undefined)) {
+      throw new BadRequestException('Can only modify amount, due date, recurrence rule, and signature requirement for DRAFT invoices');
     }
 
     const updateData: any = {};
     if (dto.amount !== undefined) updateData.totalCents = dto.amount;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
     if (dto.recurrenceRule !== undefined) updateData.recurrenceRule = dto.recurrenceRule;
+    if (dto.requiresSignature !== undefined) updateData.requiresSignature = dto.requiresSignature;
     if (dto.status !== undefined) updateData.status = dto.status;
 
     const invoice = await this.prisma.invoice.update({
@@ -290,6 +353,7 @@ export class InvoicesService {
       customerName: invoice.customer.name,
       customerEmail: invoice.customer.email,
       balance: invoice.totalCents - totalPaid,
+      paymentLink: await this.resolvePaymentLink(id, tenantId),
     };
   }
 
@@ -310,7 +374,7 @@ export class InvoicesService {
 
     const updated = await this.prisma.invoice.update({
       where: { id },
-      data: { status: InvoiceStatus.SENT },
+      data: { status: InvoiceStatus.SENT, sentAt: new Date() },
       include: {
         customer: {
           select: { name: true, email: true },
@@ -319,11 +383,20 @@ export class InvoicesService {
       },
     });
 
+    // F2: a sent invoice always gets a customer-facing payment link so it can
+    // actually be paid through the hosted checkout.
+    const paymentLink = await this.createPaymentLink(
+      id,
+      tenantId,
+      invoice.totalCents,
+    );
+
     await this.createOutboxEvent(tenantId, 'INVOICE_SENT', {
       invoiceId: id,
       customerId: invoice.customerId,
       amount: invoice.totalCents,
       dueDate: invoice.dueDate.toISOString(),
+      paymentLink,
     });
 
     const totalPaid = updated.payments.reduce((sum, p) => sum + p.amount, 0);
@@ -333,6 +406,7 @@ export class InvoicesService {
       customerName: updated.customer.name,
       customerEmail: updated.customer.email,
       balance: updated.totalCents - totalPaid,
+      paymentLink,
     };
   }
 

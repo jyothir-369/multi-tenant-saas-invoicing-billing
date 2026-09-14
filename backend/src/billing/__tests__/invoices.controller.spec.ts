@@ -81,18 +81,22 @@ describe('InvoicesController', () => {
     it('should return all invoices', async () => {
       mockInvoicesService.findAll.mockResolvedValue([mockInvoice]);
 
-      const result = await controller.findAll(undefined);
+      const result = await controller.findAll({} as any);
 
       expect(result).toEqual([mockInvoice]);
-      expect(mockInvoicesService.findAll).toHaveBeenCalledWith(undefined);
+      expect(mockInvoicesService.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ status: undefined }),
+      );
     });
 
     it('should filter by status', async () => {
       mockInvoicesService.findAll.mockResolvedValue([mockInvoice]);
 
-      await controller.findAll(InvoiceStatus.SENT);
+      await controller.findAll({ status: InvoiceStatus.SENT } as any);
 
-      expect(mockInvoicesService.findAll).toHaveBeenCalledWith(InvoiceStatus.SENT);
+      expect(mockInvoicesService.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ status: InvoiceStatus.SENT }),
+      );
     });
   });
 

@@ -24,6 +24,10 @@ export interface InvoicePdfData {
   tenantAddress?: string;
   tenantEmail?: string;
   paymentLink?: string;
+  requiresSignature?: boolean;
+  signatureName?: string | null;
+  signatureEmail?: string | null;
+  signedAt?: string | null;
 }
 
 export interface PdfGenerationResult {
@@ -136,6 +140,22 @@ export class PdfGeneratorService {
           doc.fontSize(10).fillColor('blue');
           doc.text(data.paymentLink, { align: 'center', link: data.paymentLink });
           doc.fillColor('black');
+        }
+
+        // Signature block — binding sign-off captured at checkout.
+        if (data.signedAt && data.signatureName) {
+          doc.moveDown(2);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor('#0F766E').text('Signed', { align: 'center' });
+          doc.font('Helvetica').fontSize(10).fillColor('#000000');
+          doc.text(
+            `Signed by ${data.signatureName}${data.signatureEmail ? ' · ' + data.signatureEmail : ''} on ${data.signedAt}`,
+            { align: 'center' },
+          );
+        } else if (data.requiresSignature) {
+          doc.moveDown(2);
+          doc.font('Helvetica-Bold').fontSize(12).fillColor('#B45309').text('SIGNATURE REQUIRED', { align: 'center' });
+          doc.font('Helvetica').fontSize(9).fillColor('#333333');
+          doc.text('Signature is captured before payment is accepted.', { align: 'center' });
         }
 
         // Footer

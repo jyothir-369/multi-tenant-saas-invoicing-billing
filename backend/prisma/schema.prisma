@@ -77,6 +77,10 @@ model Invoice {
   lastGeneratedAt DateTime?     @map("last_generated_at")
   sentAt          DateTime?     @map("sent_at")
   paidAt          DateTime?     @map("paid_at")
+  requiresSignature Boolean      @default(false) @map("requires_signature")
+  signatureName    String?       @map("signature_name")
+  signatureEmail   String?       @map("signature_email")
+  signedAt         DateTime?     @map("signed_at")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -221,4 +225,14 @@ model NotificationRead {
   @@unique([userId, eventId])
   @@index([tenantId, userId])
   @@map("notification_reads")
+}
+
+model InvoiceCounter {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  year       Int
+  lastNumber Int    @default(0) @map("last_number")
+
+  @@unique([tenantId, year])
+  @@map("invoice_counters")
 }

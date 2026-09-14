@@ -109,3 +109,20 @@
   gap: 10px;
   margin-top: 10px;
 }
+.linkBox {
+  border: 1px solid var(--border);
+  background: var(--green-50);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.linkBox span {
+  font-size: 12px;
+  color: var(--green-700);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 0 0 10px;
+}

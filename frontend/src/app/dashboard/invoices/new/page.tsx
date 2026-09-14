@@ -41,6 +41,7 @@ export default function NewInvoicePage() {
   );
   const [dueDate, setDueDate] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState("");
+  const [requiresSignature, setRequiresSignature] = useState(false);
   const [rows, setRows] = useState<LineRow[]>([
     {
       key: 1,
@@ -132,6 +133,7 @@ export default function NewInvoicePage() {
           amount: total,
           dueDate: new Date(`${dueDate}T00:00:00.000Z`).toISOString(),
           recurrenceRule: recurrenceRule || undefined,
+          requiresSignature,
         }),
       });
       try {
@@ -242,6 +244,21 @@ export default function NewInvoicePage() {
                     </option>
                   ))}
                 </select>
+                <label className={local.checkRow}>
+                  <input
+                    id="invoice-requires-signature"
+                    type="checkbox"
+                    checked={requiresSignature}
+                    onChange={(e) => setRequiresSignature(e.target.checked)}
+                  />
+                  <span>
+                    <b>Require signature</b>
+                    <small>
+                      The customer must sign before payment is accepted
+                      (SIGNATURE required).
+                    </small>
+                  </span>
+                </label>
               </div>
             </section>
 
@@ -348,6 +365,10 @@ export default function NewInvoicePage() {
               <div className={local.summaryLine}>
                 <small>Repeats</small>
                 <b>{recurrenceLabel}</b>
+              </div>
+              <div className={local.summaryLine}>
+                <small>Signature</small>
+                <b>{requiresSignature ? "Required" : "Not required"}</b>
               </div>
               <div className={local.totals}>
                 <div className={local.summaryLine}>

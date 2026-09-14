@@ -27,7 +27,7 @@ describe('PaymentsService', () => {
     tenantId: mockTenantId,
     customerId: mockCustomerId,
     status: InvoiceStatus.SENT,
-    amount: 10000, // $100.00 in cents
+    totalCents: 10000, // $100.00 in cents
     dueDate: new Date(),
     recurrenceRule: null,
     lastGeneratedAt: null,

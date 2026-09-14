@@ -41,6 +41,11 @@ type InvoiceDetail = {
   paidAt?: string;
   recurrenceRule?: string;
   invoiceNumber?: string;
+  requiresSignature?: boolean;
+  signatureName?: string | null;
+  signatureEmail?: string | null;
+  signedAt?: string | null;
+  paymentLink?: string;
   lineItems: LineItem[];
   payments: Payment[];
 };
@@ -77,6 +82,7 @@ export default function InvoiceDetailPage({
   const [invoiceEdit, setInvoiceEdit] = useState(false);
   const [editAmount, setEditAmount] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editRequiresSignature, setEditRequiresSignature] = useState(false);
 
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editingLine, setEditingLine] = useState({
@@ -152,6 +158,7 @@ export default function InvoiceDetailPage({
         body: JSON.stringify({
           amount: Number(editAmount),
           dueDate: new Date(`${editDueDate}T00:00:00.000Z`).toISOString(),
+          requiresSignature: editRequiresSignature,
         }),
       });
       setInvoice(updated);
@@ -257,6 +264,33 @@ export default function InvoiceDetailPage({
     }
   }
 
+  async function copyPaymentLink() {
+    if (!invoice?.paymentLink) return;
+    try {
+      await navigator.clipboard.writeText(invoice.paymentLink);
+      setMessage("Payment link copied to clipboard.");
+    } catch (e) {
+      setError("Unable to copy the payment link.");
+    }
+  }
+
+  async function generatePaymentLink() {
+    setBusy("payment-link");
+    setError("");
+    try {
+      const res = await api<{ url: string }>("/payments/links", {
+        method: "POST",
+        body: JSON.stringify({ invoice_id: params.id }),
+      });
+      setInvoice((prev) => (prev ? { ...prev, paymentLink: res.url } : prev));
+      setMessage("Payment link created.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to create payment link.");
+    } finally {
+      setBusy("");
+    }
+  }
+
   const paidCents =
     invoice?.payments.reduce((sum, p) => sum + p.amount, 0) ?? 0;
   const balanceCents =
@@ -324,6 +358,7 @@ export default function InvoiceDetailPage({
                       setInvoiceEdit(true);
                       setEditAmount(String(invoice.totalCents));
                       setEditDueDate(invoice.dueDate.slice(0, 10));
+                      setEditRequiresSignature(invoice.requiresSignature ?? false);
                     }}
                   >
                     Edit
@@ -388,6 +423,17 @@ export default function InvoiceDetailPage({
                   onChange={(e) => setEditDueDate(e.target.value)}
                   required
                 />
+                <label
+                  className={styles.inlineCheck}
+                  style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={editRequiresSignature}
+                    onChange={(e) => setEditRequiresSignature(e.target.checked)}
+                  />
+                  Require customer signature (SIGNATURE required)
+                </label>
                 <button className={styles.primaryButton} disabled={busy === "edit"}>
                   {busy === "edit" ? "Saving…" : "Save changes"}
                 </button>
@@ -646,6 +692,16 @@ export default function InvoiceDetailPage({
                     <b>{invoice.recurrenceRule}</b>
                   </div>
                 )}
+                <div className={local.summaryLine}>
+                  <small>Signature</small>
+                  <b>
+                    {invoice.requiresSignature
+                      ? invoice.signedAt
+                        ? `Signed by ${invoice.signatureName || "customer"} on ${new Date(invoice.signedAt).toLocaleDateString()}`
+                        : "Required — pending"
+                      : "Not required"}
+                  </b>
+                </div>
                 <div className={local.totals}>
                   <div className={local.summaryLine}>
                     <small>Total</small>
@@ -661,6 +717,49 @@ export default function InvoiceDetailPage({
                   </div>
                 </div>
               </section>
+
+              {(invoice.status === "SENT" || invoice.status === "OVERDUE") && (
+                <section className={styles.panel}>
+                  <div className={styles.panelHeader}>
+                    <div>
+                      <h2>Payment link</h2>
+                      <p>Share this link with the customer to collect payment.</p>
+                    </div>
+                  </div>
+                  {invoice.paymentLink ? (
+                    <>
+                      <div className={local.linkBox}>
+                        <span>{invoice.paymentLink}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <button
+                          className={styles.primaryButton}
+                          onClick={() => void copyPaymentLink()}
+                        >
+                          Copy link
+                        </button>
+                        <a href={invoice.paymentLink} target="_blank" rel="noreferrer">
+                          Open checkout
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <p className={local.hint}>
+                        No payment link yet. Generate one to let your customer
+                        pay online.
+                      </p>
+                      <button
+                        className={styles.primaryButton}
+                        disabled={busy === "payment-link"}
+                        onClick={() => void generatePaymentLink()}
+                      >
+                        {busy === "payment-link" ? "Generating…" : "Generate payment link"}
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
 
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>

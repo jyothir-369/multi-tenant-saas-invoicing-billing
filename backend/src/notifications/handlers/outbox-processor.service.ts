@@ -107,6 +107,10 @@ export class OutboxProcessorService {
         await this.handleInvoicePaid(payload);
         break;
 
+      case OutboxEventType.INVOICE_OVERDUE:
+        await this.handleInvoiceOverdue(payload);
+        break;
+
       case OutboxEventType.PAYMENT_RECEIVED:
         await this.handlePaymentReceived(payload);
         break;
@@ -130,6 +134,43 @@ export class OutboxProcessorService {
       default:
         this.logger.warn(`Unknown event type: ${eventType}`);
     }
+  }
+
+  /**
+   * Handle invoice overdue event — enqueue the overdue reminder email.
+   * This closes the dunning loop: invoices marked OVERDUE produce a
+   * SEND_OVERDUE_REMINDER job that the email worker delivers.
+   */
+  private async handleInvoiceOverdue(payload: Record<string, any>): Promise<void> {
+    const tenantId = String(payload.tenantId);
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id: String(payload.invoiceId), tenantId },
+      include: { customer: true },
+    });
+    if (!invoice) {
+      throw new Error(`Invoice ${String(payload.invoiceId)} not found for overdue reminder`);
+    }
+    if (invoice.status !== 'OVERDUE') {
+      this.logger.log(`Invoice ${invoice.number || invoice.id} no longer overdue; skipping reminder`);
+      return;
+    }
+    const daysOverdue = Math.max(
+      1,
+      Math.floor((Date.now() - new Date(invoice.dueDate).getTime()) / 86400000),
+    );
+    await this.queueService.addEmailJob(JOB_NAMES.SEND_OVERDUE_REMINDER, {
+      tenantId,
+      eventId: invoice.id,
+      payload: {
+        invoiceId: invoice.id,
+        customerName: invoice.customer.name,
+        customerEmail: invoice.customer.email,
+        invoiceNumber: invoice.number || invoice.id,
+        amount: invoice.totalCents,
+        dueDate: invoice.dueDate.toISOString(),
+        daysOverdue,
+      },
+    });
   }
 
   /**

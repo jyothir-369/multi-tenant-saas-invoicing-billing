@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, IsUUID, IsDateString, MaxLength, Matches } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsPositive, IsString, IsUUID, IsDateString, IsBoolean, MaxLength, Matches } from 'class-validator';
 
 export class CreateInvoiceDto {
   @IsUUID()
@@ -20,4 +20,8 @@ export class CreateInvoiceDto {
     message: 'recurrenceRule must be a valid pattern like "30 days", "1 month", "2 weeks"',
   })
   recurrenceRule?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresSignature?: boolean;
 }

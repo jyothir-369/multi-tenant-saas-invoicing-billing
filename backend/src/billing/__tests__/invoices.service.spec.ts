@@ -31,11 +31,16 @@ describe('InvoicesService', () => {
       payment: {
         findMany: jest.fn(),
       },
+      paymentLink: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
       outboxEvent: {
         create: jest.fn(),
       },
+      $transaction: jest.fn().mockImplementation((cb: (tx: any) => any) => cb(mockPrismaService)),
       $executeRaw: jest.fn(),
-      $queryRaw: jest.fn(),
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
 
     mockTenantContext = {
@@ -173,7 +178,7 @@ describe('InvoicesService', () => {
         tenantId: mockTenantId,
         customerId: 'customer-1',
         status: InvoiceStatus.SENT,
-        amount: 100000,
+        totalCents: 100000,
         dueDate: new Date(),
         recurrenceRule: null,
         lastGeneratedAt: null,
@@ -550,7 +555,7 @@ describe('InvoicesService', () => {
           tenantId: mockTenantId,
           customerId: 'customer-1',
           status: InvoiceStatus.SENT,
-          amount: 100000,
+          totalCents: 100000,
           dueDate: new Date(Date.now() + 86400000),
           payments: [],
         },
@@ -559,7 +564,7 @@ describe('InvoicesService', () => {
           tenantId: mockTenantId,
           customerId: 'customer-1',
           status: InvoiceStatus.OVERDUE,
-          amount: 50000,
+          totalCents: 50000,
           dueDate: new Date(Date.now() - 86400000),
           payments: [],
         },
@@ -568,7 +573,7 @@ describe('InvoicesService', () => {
           tenantId: mockTenantId,
           customerId: 'customer-1',
           status: InvoiceStatus.PAID,
-          amount: 30000,
+          totalCents: 30000,
           dueDate: new Date(),
           payments: [{ id: 'pay-1', amount: 30000 }],
         },

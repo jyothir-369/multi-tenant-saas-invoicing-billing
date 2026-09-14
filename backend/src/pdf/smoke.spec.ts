@@ -1,12 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PdfService } from './pdf.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantContextService } from '../common/tenant-context.service';
 
 describe('PDF smoke', () => {
   let pdfService: PdfService;
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PdfService, { provide: PrismaService, useValue: {} as any }, { provide: 'TenantContextService', useValue: { getTenantId: () => 't1' } }],
+      providers: [PdfService, { provide: PrismaService, useValue: {} as any }, { provide: TenantContextService, useValue: { getTenantId: () => 't1' } }],
     }).compile();
     pdfService = module.get(PdfService);
   });

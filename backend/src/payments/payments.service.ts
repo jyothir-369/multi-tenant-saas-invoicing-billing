@@ -194,12 +194,17 @@ export class PaymentsService {
   /**
    * Process a successful payment from Stripe webhook.
    * Uses idempotency key to prevent duplicate processing.
+   *
+   * When the invoice requires a signature, a signer must be provided before
+   * the payment is accepted; the signer's name/email and timestamp are stored
+   * on the invoice (binding electronic signature captured at checkout).
    */
   async processSuccessfulPayment(
     providerPaymentId: string,
     amount: number,
     invoiceId: string,
     tenantId: string,
+    signature?: { name: string; email?: string },
   ): Promise<PaymentProcessingResult> {
     // Check for existing payment with this providerPaymentId (idempotency)
     const existingPayment = await this.prisma.payment.findUnique({
@@ -239,6 +244,12 @@ export class PaymentsService {
       return { success: false, error: 'Invoice not found' };
     }
 
+    // Enforce signature requirement before any money is accepted.
+    const signatureRequired = Boolean(invoice.requiresSignature) || signature != null;
+    if (signatureRequired && !signature?.name?.trim()) {
+      return { success: false, error: 'A signature is required before this payment can be accepted.' };
+    }
+
     // Calculate new total and check if invoice should be marked as paid
     const existingTotal = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
     const newTotal = existingTotal + amount;
@@ -258,10 +269,19 @@ export class PaymentsService {
       });
 
       // Update invoice status if fully paid
+      const invoiceUpdates: any = {};
       if (isFullyPaid) {
+        invoiceUpdates.status = InvoiceStatus.PAID;
+      }
+      if (signature?.name) {
+        invoiceUpdates.signatureName = signature.name.trim();
+        invoiceUpdates.signatureEmail = signature.email?.trim() || null;
+        invoiceUpdates.signedAt = new Date();
+      }
+      if (Object.keys(invoiceUpdates).length > 0) {
         await tx.invoice.update({
           where: { id: invoiceId },
-          data: { status: InvoiceStatus.PAID },
+          data: invoiceUpdates,
         });
       }
 
@@ -278,6 +298,7 @@ export class PaymentsService {
             customerName: invoice.customer.name,
             amount,
             paidAt: new Date().toISOString(),
+            signerName: signature?.name?.trim() || undefined,
           },
         },
       });

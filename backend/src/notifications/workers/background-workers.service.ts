@@ -1,12 +1,22 @@
 ﻿import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
 import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { QueueService, JOB_NAMES, QueueJobData } from '../queues';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantContextService } from '../../common/tenant-context.service';
 import { EmailHandlerService } from '../handlers';
 import { PdfGeneratorService, InvoicePdfData } from '../adapters';
 import { OutboxProcessorService } from '../handlers';
+
+// How often the built-in recurring-invoice scheduler scans for due invoices.
+// Falls back to an internal interval so the workflow works even without an
+// external cron. Override with RECURRING_CHECK_INTERVAL_MS (in milliseconds).
+const DEFAULT_RECURRING_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+interface InvoiceCounterRow {
+  lastNumber: number;
+}
 
 @Injectable()
 export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
@@ -16,6 +26,7 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
   private pdfWorker: Worker;
   private outboxWorker: Worker;
   private recurringWorker: Worker;
+  private recurringCheckTimer: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -71,10 +82,28 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
     // Set up event handlers
     this.setupWorkerEvents();
 
+    // Start the recurring-invoice scheduler (also fires an initial scan).
+    this.startRecurringScheduler();
+
     this.logger.log('Background workers initialized');
   }
 
+  private startRecurringScheduler(): void {
+    const intervalMs = Number(process.env.RECURRING_CHECK_INTERVAL_MS) || DEFAULT_RECURRING_CHECK_INTERVAL_MS;
+
+    // Fire an initial scan shortly after boot.
+    setTimeout(() => void this.checkAllTenantsRecurring(), 5_000);
+
+    this.recurringCheckTimer = setInterval(
+      () => void this.checkAllTenantsRecurring(),
+      intervalMs,
+    );
+    this.recurringCheckTimer.unref?.();
+    this.logger.log(`Recurring invoice scheduler running every ${intervalMs}ms`);
+  }
+
   async onModuleDestroy(): Promise<void> {
+    clearInterval(this.recurringCheckTimer);
     await Promise.all([
       this.emailWorker?.close(),
       this.pdfWorker?.close(),
@@ -228,6 +257,10 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
             tenantName: invoice.tenant.name,
             tenantEmail: invoice.tenant.id, // In real app, store email in tenant
             paymentLink: payload.paymentLink,
+            requiresSignature: invoice.requiresSignature,
+            signatureName: invoice.signatureName,
+            signatureEmail: invoice.signatureEmail,
+            signedAt: invoice.signedAt ? invoice.signedAt.toISOString().split('T')[0] : null,
           };
 
           const result = await this.pdfGenerator.generateInvoicePdf(pdfData);
@@ -274,81 +307,227 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Process recurring invoice jobs.
+   * Process recurring invoice jobs (enqueued per-tenant).
    */
   private async processRecurringJob(job: Job): Promise<void> {
     const data = job.data as QueueJobData;
-    const { tenantId, payload } = data;
+    const { tenantId } = data;
 
     this.logger.log(`Processing recurring invoice job for tenant ${tenantId}`);
 
     await this.tenantContext.run(tenantId, async () => {
-      // Find invoices with recurrence rules that are due
-      const invoices = await this.prisma.invoice.findMany({
-        where: {
-          tenantId,
-          recurrenceRule: { not: null },
-          status: 'PAID', // Last instance was paid
-        },
-        include: {
-          customer: true,
+      const generated = await this.checkTenantRecurring(tenantId);
+      this.logger.log(`Recurring invoice check for ${tenantId}: generated ${generated}`);
+    });
+  }
+
+  /**
+   * Scheduler entry point: scan every tenant for due recurring invoices.
+   * This is what makes the "recurring" side of billing actually run.
+   */
+  async checkAllTenantsRecurring(): Promise<number> {
+    try {
+      const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
+      let total = 0;
+      for (const tenant of tenants) {
+        await this.tenantContext.run(tenant.id, async () => {
+          total += await this.checkTenantRecurring(tenant.id);
+        });
+      }
+      if (total > 0) {
+        this.logger.log(`Recurring scheduler generated ${total} invoice(s) across ${tenants.length} tenant(s)`);
+      }
+      return total;
+    } catch (err) {
+      this.logger.error(`Recurring scheduler scan failed: ${(err as Error).message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Generate any due recurring invoices for a single tenant.
+   * A series advances when the latest instance is paid or overdue and the
+   * recurrence period since the last generation has elapsed. Generated
+   * instances inherit the recurrence rule, so the chain continues as each
+   * instance is paid — one invoice per period, no runaway generation.
+   */
+  async checkTenantRecurring(tenantId: string): Promise<number> {
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        tenantId,
+        recurrenceRule: { not: null },
+        status: { in: ['PAID', 'OVERDUE'] },
+      },
+      include: { customer: true, lineItems: true },
+    });
+
+    let generated = 0;
+    for (const invoice of invoices) {
+      if (!this.isDueForRecurrence(invoice.recurrenceRule!, invoice.lastGeneratedAt)) {
+        continue;
+      }
+      this.logger.log(`Generating next recurring invoice from ${invoice.number || invoice.id}`);
+      await this.generateRecurringInvoice(invoice);
+      generated++;
+    }
+    return generated;
+  }
+
+  /**
+   * Clone a recurring "template" invoice into the next payable instance:
+   * copies line items, assigns the next number, marks it SENT, creates a
+   * customer-facing payment link, and raises an INVOICE_SENT outbox event so
+   * the notification pipeline emails the customer.
+   */
+  private async generateRecurringInvoice(parent: {
+    id: string;
+    tenantId: string;
+    customerId: string;
+    customer: { name: string; email: string };
+    number: string;
+    totalCents: number;
+    subtotalCents: number;
+    taxCents: number;
+    discountCents: number;
+    recurrenceRule: string | null;
+    requiresSignature: boolean;
+    lineItems: Array<{
+      description: string;
+      quantity: number;
+      unitPriceCents: number;
+      taxRateBps: number;
+      subtotalCents: number;
+    }>;
+  }): Promise<void> {
+    const year = new Date().getFullYear();
+    const number = await this.generateInvoiceNumber(parent.tenantId, year);
+    const dueDate = this.calculateNextDueDate(parent.recurrenceRule!);
+    const prefix = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    await this.prisma.$transaction(async (tx) => {
+      const child = await tx.invoice.create({
+        data: {
+          tenantId: parent.tenantId,
+          customerId: parent.customerId,
+          number,
+          status: 'SENT',
+          dueDate,
+          recurrenceRule: parent.recurrenceRule,
+          requiresSignature: parent.requiresSignature,
+          subtotalCents: parent.subtotalCents,
+          taxCents: parent.taxCents,
+          discountCents: parent.discountCents,
+          totalCents: parent.totalCents,
         },
       });
 
-      for (const invoice of invoices) {
-        // Check if it's time to generate next invoice based on recurrence rule
-        if (this.isDueForRecurrence(invoice.recurrenceRule!, invoice.lastGeneratedAt)) {
-          this.logger.log(`Generating recurring invoice for ${invoice.id}`);
-          
-          // Create new invoice based on recurring rule
-          await this.prisma.invoice.create({
-            data: {
-              tenantId: invoice.tenantId,
-              customerId: invoice.customerId,
-              totalCents: invoice.totalCents,
-              dueDate: this.calculateNextDueDate(invoice.recurrenceRule!),
-              recurrenceRule: invoice.recurrenceRule,
-              status: 'SENT',
-            },
-          });
-
-          // Update lastGeneratedAt
-          await this.prisma.invoice.update({
-            where: { id: invoice.id },
-            data: { lastGeneratedAt: new Date() },
-          });
-        }
+      // Copy line items across so the generated invoice is complete, not a shell.
+      for (const item of parent.lineItems) {
+        await tx.lineItem.create({
+          data: {
+            invoiceId: child.id,
+            tenantId: parent.tenantId,
+            description: item.description,
+            quantity: item.quantity,
+            unitPriceCents: item.unitPriceCents,
+            taxRateBps: item.taxRateBps,
+            subtotalCents: item.subtotalCents,
+          },
+        });
       }
+
+      // Create a payable payment link for the new invoice.
+      const token = randomBytes(32).toString('hex');
+      await tx.paymentLink.create({
+        data: {
+          tenantId: parent.tenantId,
+          invoiceId: child.id,
+          token,
+          amountCents: parent.totalCents,
+          status: 'PENDING',
+          expiresAt: new Date(Date.now() + 30 * 86400000),
+        },
+      });
+
+      // Queue the "invoice sent" email via the outbox.
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: parent.tenantId,
+          type: 'INVOICE_SENT',
+          payload: {
+            invoiceId: child.id,
+            customerId: parent.customerId,
+            customerName: parent.customer.name,
+            customerEmail: parent.customer.email,
+            invoiceNumber: number,
+            amount: parent.totalCents,
+            dueDate: dueDate.toISOString(),
+            paymentLink: `${prefix}/pay/${token}`,
+          },
+        },
+      });
+
+      // Mark the source as generated so the next scan waits a full period.
+      await tx.invoice.update({
+        where: { id: parent.id },
+        data: { lastGeneratedAt: new Date() },
+      });
     });
+  }
+
+  /**
+   * Allocate the next sequential invoice number for a tenant/year.
+   * Uses an upsert on invoice_counters so concurrent runs never collide.
+   */
+  private async generateInvoiceNumber(tenantId: string, year: number): Promise<string> {
+    try {
+      const row = await this.prisma.$queryRaw<InvoiceCounterRow[]>`
+        UPDATE invoice_counters
+        SET last_number = last_number + 1
+        WHERE tenant_id = ${tenantId} AND year = ${year}
+        RETURNING last_number
+      `;
+
+      if (row.length === 0) {
+        await this.prisma.$executeRaw`
+          INSERT INTO invoice_counters (id, tenant_id, year, last_number)
+          VALUES (gen_random_uuid(), ${tenantId}, ${year}, 1)
+        `;
+        return `INV-${year}-${String(1).padStart(6, '0')}`;
+      }
+
+      return `INV-${year}-${String(row[0].lastNumber).padStart(6, '0')}`;
+    } catch (err) {
+      this.logger.warn(`Invoice counter unavailable (${(err as Error).message}); using time-based number`);
+      return `INV-${year}-${String(Date.now() % 1000000).padStart(6, '0')}`;
+    }
   }
 
   /**
    * Check if invoice is due for recurrence.
    */
   private isDueForRecurrence(recurrenceRule: string, lastGenerated: Date | null): boolean {
+    const rule = recurrenceRule.toLowerCase();
+    const periodMs = this.recurrencePeriodMs(rule);
+    if (!periodMs) return false;
+
+    // First generation: a paid/overdue series with no prior child is due now.
     if (!lastGenerated) return true;
 
-    const lastDate = new Date(lastGenerated);
-    const now = new Date();
+    return Date.now() - lastGenerated.getTime() >= periodMs;
+  }
 
-    // Simple rule parsing (e.g., "monthly", "weekly", "daily")
-    const rule = recurrenceRule.toLowerCase();
-
-    if (rule.includes('daily')) {
-      const daysDiff = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-      return daysDiff >= 1;
-    }
-
-    if (rule.includes('weekly')) {
-      const daysDiff = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-      return daysDiff >= 7;
-    }
-
-    if (rule.includes('monthly')) {
-      return now.getMonth() !== lastDate.getMonth() || now.getFullYear() !== lastDate.getFullYear();
-    }
-
-    return false;
+  /**
+   * Recurrence period in milliseconds for a rule. Returns 0 for unknown rules.
+   */
+  private recurrencePeriodMs(rule: string): number {
+    const DAY = 86400000;
+    if (rule.includes('daily')) return DAY;
+    if (rule.includes('weekly')) return 7 * DAY;
+    if (rule.includes('monthly')) return 30 * DAY;
+    if (rule.includes('quarterly')) return 91 * DAY;
+    if (rule.includes('yearly') || rule.includes('annual')) return 365 * DAY;
+    return 0;
   }
 
   /**
@@ -362,8 +541,10 @@ export class BackgroundWorkersService implements OnModuleInit, OnModuleDestroy {
       dueDate.setDate(dueDate.getDate() + 1);
     } else if (rule.includes('weekly')) {
       dueDate.setDate(dueDate.getDate() + 7);
-    } else if (rule.includes('monthly')) {
-      dueDate.setMonth(dueDate.getMonth() + 1);
+    } else if (rule.includes('quarterly')) {
+      dueDate.setMonth(dueDate.getMonth() + 3);
+    } else if (rule.includes('yearly') || rule.includes('annual')) {
+      dueDate.setFullYear(dueDate.getFullYear() + 1);
     } else {
       dueDate.setMonth(dueDate.getMonth() + 1); // Default to monthly
     }

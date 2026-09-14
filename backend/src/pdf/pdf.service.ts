@@ -24,6 +24,10 @@ export interface InvoicePdfProps {
   taxCents: number;
   discountCents: number;
   totalCents: number;
+  requiresSignature: boolean;
+  signatureName?: string | null;
+  signatureEmail?: string | null;
+  signedAt?: string | null;
 }
 
 @Injectable()
@@ -83,6 +87,10 @@ export class PdfService {
       taxCents,
       discountCents,
       totalCents,
+      requiresSignature: Boolean(invoice.requiresSignature),
+      signatureName: invoice.signatureName,
+      signatureEmail: invoice.signatureEmail,
+      signedAt: invoice.signedAt ? invoice.signedAt.toISOString().split('T')[0] : null,
     };
   }
 
@@ -174,6 +182,22 @@ export class PdfService {
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#0F766E');
     doc.text('Total', totalsX, y, { align: 'right' });
     doc.text(fmt(props.totalCents), 552, y, { align: 'right' });
+
+    // Signature block — binding electronic sign-off captured at checkout.
+    y += 28;
+    doc.moveTo(40, y).lineTo(552, y).stroke('#ccc');
+    y += 12;
+    if (props.signedAt && props.signatureName) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0F766E').text('Signed', 40, y);
+      doc.font('Helvetica').fontSize(10).fillColor('#333')
+        .text(`Signed by ${props.signatureName}${props.signatureEmail ? ' · ' + props.signatureEmail : ''} on ${props.signedAt}`, 40, y + 14, { width: 512 });
+    } else if (props.requiresSignature) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#B45309').text('SIGNATURE REQUIRED', 40, y);
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280')
+        .text('This invoice requires a signature before payment is accepted. The signer is captured at payment time.', 40, y + 14, { width: 512 });
+    } else {
+      doc.font('Helvetica').fontSize(9).fillColor('#6B7280').text('No signature required for this invoice.', 40, y);
+    }
 
     // Footer
     y = 730;

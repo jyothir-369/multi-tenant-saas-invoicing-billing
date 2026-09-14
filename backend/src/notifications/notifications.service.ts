@@ -5,7 +5,7 @@ import { QueueService, JOB_NAMES } from './queues';
 import { OutboxProcessorService } from './handlers';
 import { EmailHandlerService } from './handlers';
 import { PdfGeneratorService } from './adapters';
-import { OutboxEventType } from './dto';
+import { BackgroundWorkersService } from './workers';
 
 @Injectable()
 export class NotificationsService {
@@ -18,6 +18,7 @@ export class NotificationsService {
     private readonly outboxProcessor: OutboxProcessorService,
     private readonly emailHandler: EmailHandlerService,
     private readonly pdfGenerator: PdfGeneratorService,
+    private readonly backgroundWorkers: BackgroundWorkersService,
   ) {}
 
   private tenant() {
@@ -279,74 +280,20 @@ export class NotificationsService {
 
   /**
    * Schedule recurring invoice processing.
+   * Now handled automatically by the built-in scheduler in BackgroundWorkersService.
+   * This method exists for backward compatibility with any existing calls.
    */
   async scheduleRecurringInvoices(): Promise<void> {
-    await this.queueService.scheduleRecurringInvoiceCheck();
+    // The background worker module runs its own check on a timer (RECURRING_CHECK_INTERVAL_MS).
+    // Nothing to do here — the scheduler is already running when ENABLE_BACKGROUND_WORKERS=true.
   }
 
   /**
    * Manually trigger recurring invoice generation for a tenant.
+   * Delegates to the canonical implementation in BackgroundWorkersService so
+   * manual and automated paths share the same code.
    */
   async triggerRecurringInvoiceGeneration(tenantId: string): Promise<number> {
-    return this.tenantContext.run(tenantId, async () => {
-      const invoices = await this.prisma.invoice.findMany({
-        where: {
-          tenantId,
-          recurrenceRule: { not: null },
-        },
-        include: { customer: true },
-      });
-
-      let generated = 0;
-      for (const invoice of invoices) {
-        if (invoice.lastGeneratedAt) {
-          const daysSince = Math.floor(
-            (Date.now() - invoice.lastGeneratedAt.getTime()) / (1000 * 60 * 60 * 24),
-          );
-
-          const rule = invoice.recurrenceRule!.toLowerCase();
-          let shouldGenerate = false;
-
-          if (rule.includes('daily') && daysSince >= 1) shouldGenerate = true;
-          if (rule.includes('weekly') && daysSince >= 7) shouldGenerate = true;
-          if (rule.includes('monthly')) {
-            const lastMonth = invoice.lastGeneratedAt.getMonth();
-            const currentMonth = new Date().getMonth();
-            shouldGenerate = currentMonth !== lastMonth;
-          }
-
-          if (shouldGenerate) {
-            await this.prisma.invoice.create({
-              data: {
-                tenantId: invoice.tenantId,
-                customerId: invoice.customerId,
-                totalCents: invoice.totalCents,
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-                recurrenceRule: invoice.recurrenceRule,
-                status: 'SENT',
-              },
-            });
-
-            await this.prisma.invoice.update({
-              where: { id: invoice.id },
-              data: { lastGeneratedAt: new Date() },
-            });
-
-            // Create outbox event for email
-            await this.createOutboxEvent(invoice.tenantId, OutboxEventType.INVOICE_SENT, {
-              invoiceId: invoice.id,
-              customerId: invoice.customerId,
-              customerName: invoice.customer.name,
-              customerEmail: invoice.customer.email,
-              amount: invoice.totalCents,
-            });
-
-            generated++;
-          }
-        }
-      }
-
-      return generated;
-    });
+    return this.tenantContext.run(tenantId, () => this.backgroundWorkers.checkTenantRecurring(tenantId));
   }
 }
