@@ -67,11 +67,11 @@ export default function PaymentsPage() {
       const [a, b, c] = await Promise.all([
         api<Payment[]>("/payments"),
         api<Stats>("/payments/stats/summary"),
-        api<Invoice[]>("/invoices"),
+        api<{ data: Invoice[]; total: number }>("/invoices"),
       ]);
       setP(a);
       setS(b);
-      setInvoices(c);
+      setInvoices(c.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load payments.");
     } finally {

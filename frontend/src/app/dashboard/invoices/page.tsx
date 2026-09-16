@@ -1,13 +1,15 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "../../page.module.css";
 import { api, formatMoney } from "../../../lib/api";
 type Invoice = {
   id: string;
-  invoiceNumber?: string;
+  number?: string;
   customerId: string;
   customerName?: string;
-  amount: number;
+  totalCents: number;
+  amount?: number;
   balance?: number;
   status: string;
   createdAt: string;
@@ -15,19 +17,26 @@ type Invoice = {
 };
 type Customer = { id: string; name: string; isArchived: boolean };
 const statuses = ["ALL", "DRAFT", "SENT", "PAID", "OVERDUE", "VOID"];
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: "Draft",
+  SENT: "Sent",
+  PAID: "Paid",
+  OVERDUE: "Overdue",
+  VOID: "Void",
+};
 function statusTone(status: string) {
   const s = status.toUpperCase();
-  if (s === "PAID")
-    return { badge: `${styles.badge} ${styles.paid}`, label: "Paid" };
-  if (s === "OVERDUE")
-    return { badge: `${styles.badge} ${styles.overdue}`, label: "Overdue" };
-  if (s === "VOID")
-    return { badge: `${styles.badge} ${styles.pending}`, label: "Void" };
-  if (s === "SENT")
-    return { badge: `${styles.badge} ${styles.pending}`, label: "Sent" };
-  return { badge: `${styles.badge}`, label: s };
+  if (s === "PAID") return `${styles.badge} ${styles.paid}`;
+  if (s === "OVERDUE") return `${styles.badge} ${styles.overdue}`;
+  if (s === "VOID") return `${styles.badge} ${styles.pending}`;
+  if (s === "SENT") return `${styles.badge} ${styles.pending}`;
+  return styles.badge;
+}
+function invoiceLabel(i: Invoice) {
+  return i.number || `INV-${i.id.slice(0, 6).toUpperCase()}`;
 }
 export default function InvoicesPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
     [status, setStatus] = useState("ALL"),
@@ -37,7 +46,6 @@ export default function InvoicesPage() {
     [message, setMessage] = useState(""),
     [showForm, setShowForm] = useState(false),
     [editing, setEditing] = useState<Invoice | null>(null),
-    [selected, setSelected] = useState<Invoice | null>(null),
     [saving, setSaving] = useState(false),
     [customerId, setCustomerId] = useState(""),
     [amount, setAmount] = useState(""),
@@ -47,13 +55,14 @@ export default function InvoicesPage() {
     setError("");
     try {
       const [i, c] = await Promise.all([
-        api<Invoice[]>(
+        api<{ data: Invoice[]; total: number }>(
           `/invoices${status === "ALL" ? "" : `?status=${status}`}`,
         ),
-        api<Customer[]>("/customers"),
+        api<{ data: Customer[]; total: number }>("/customers"),
       ]);
-      setInvoices(i);
-      setCustomers(c);
+      setInvoices(i.data ?? []);
+      const customerList = (c as unknown as { data?: Customer[] }).data;
+      setCustomers(Array.isArray(customerList) ? customerList : (c as unknown as Customer[]));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load invoices.");
     } finally {
@@ -63,17 +72,10 @@ export default function InvoicesPage() {
   useEffect(() => {
     void load();
   }, [load]);
-  function openCreate() {
-    setEditing(null);
-    setCustomerId("");
-    setAmount("");
-    setDueDate("");
-    setShowForm(true);
-  }
   function openEdit(i: Invoice) {
     setEditing(i);
     setCustomerId(i.customerId);
-    setAmount(String(i.amount));
+    setAmount(String(i.totalCents ?? i.amount ?? 0));
     setDueDate(i.dueDate.slice(0, 10));
     setShowForm(true);
   }
@@ -88,7 +90,7 @@ export default function InvoicesPage() {
         dueDate: new Date(`${dueDate}T00:00:00.000Z`).toISOString(),
       });
       await api(editing ? `/invoices/${editing.id}` : "/invoices", {
-        method: editing ? "PUT" : "POST",
+        method: editing ? "PATCH" : "POST",
         body,
       });
       setShowForm(false);
@@ -100,31 +102,8 @@ export default function InvoicesPage() {
       setSaving(false);
     }
   }
-  async function action(
-    i: Invoice,
-    action: "send" | "mark-paid" | "mark-overdue" | "void" | "delete",
-  ) {
-    const label =
-      action === "delete" ? "Delete" : "Apply " + action.replaceAll("-", " ");
-    if (
-      !window.confirm(label + " " + (i.invoiceNumber || "this invoice") + "?")
-    )
-      return;
-    try {
-      const path =
-        action === "delete"
-          ? `/invoices/${i.id}`
-          : `/invoices/${i.id}/${action}`;
-      await api(path, { method: action === "delete" ? "DELETE" : "POST" });
-      setMessage("Invoice updated.");
-      setSelected(null);
-      void load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to update invoice.");
-    }
-  }
   const shown = invoices.filter((i) =>
-    `${i.invoiceNumber || ""} ${i.customerName || ""}`
+    `${invoiceLabel(i)} ${i.customerName || ""}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
@@ -138,7 +117,10 @@ export default function InvoicesPage() {
           </h1>
           <p>Create, send, and track invoices for your workspace.</p>
         </div>
-        <button className={styles.primaryButton} onClick={openCreate}>
+        <button
+          className={styles.primaryButton}
+          onClick={() => router.push("/dashboard/invoices/new")}
+        >
           New invoice
         </button>
       </div>
@@ -165,7 +147,7 @@ export default function InvoicesPage() {
               <p>
                 {editing
                   ? "Only draft invoice fields can be edited."
-                  : "New invoices are created as drafts."}
+                  : "New invoices are created as drafts. Add line items from the invoice page."}
               </p>
             </div>
           </div>
@@ -241,22 +223,37 @@ export default function InvoicesPage() {
           <div className={styles.empty}>Loading invoices…</div>
         ) : shown.length ? (
           <div className={styles.table}>
-            {shown.map((i) => {
-              const tone = statusTone(i.status);
-              return (
-                <div className={styles.tableRow} key={i.id}>
-                  <span>
-                    <button onClick={() => setSelected(i)}>
-                      {i.invoiceNumber || `Invoice ${i.id.slice(0, 6)}`}
-                    </button>
-                    <small>{i.customerName || "Customer"}</small>
-                  </span>
-                  <span className={tone.badge}>{tone.label}</span>
-                  <b>{formatMoney(i.balance ?? i.amount)}</b>
-                  <small>{new Date(i.dueDate).toLocaleDateString()}</small>
-                </div>
-              );
-            })}
+            {shown.map((i) => (
+              <div
+                className={`${styles.tableRow} ${styles.tableRowWide}`}
+                key={i.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/dashboard/invoices/${i.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") router.push(`/dashboard/invoices/${i.id}`);
+                }}
+              >
+                <span>
+                  <b>{invoiceLabel(i)}</b>
+                  <small>{i.customerName || "Customer"}</small>
+                </span>
+                <span className={statusTone(i.status)}>
+                  {STATUS_LABEL[i.status.toUpperCase()] || i.status}
+                </span>
+                <b>{formatMoney(i.balance ?? i.totalCents ?? 0)}</b>
+                <small>{new Date(i.dueDate).toLocaleDateString()}</small>
+                <button
+                  aria-label={`Open ${invoiceLabel(i)}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/dashboard/invoices/${i.id}`);
+                  }}
+                >
+                  Open
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
           <div className={styles.empty}>
@@ -265,61 +262,6 @@ export default function InvoicesPage() {
           </div>
         )}
       </section>
-      {selected && (
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2>{selected.invoiceNumber || "Invoice details"}</h2>
-              <p>
-                {selected.customerName || "Customer"} ·{" "}
-                {statusTone(selected.status).label}
-              </p>
-            </div>
-            <button onClick={() => setSelected(null)}>Close</button>
-          </div>
-          <span className={styles.sectionTitle}>Summary</span>
-          <p>
-            Amount: <b>{formatMoney(selected.amount)}</b> · Balance:{" "}
-            <b>{formatMoney(selected.balance ?? selected.amount)}</b>
-          </p>
-          <p>
-            Issued: {new Date(selected.createdAt).toLocaleDateString()} · Due:{" "}
-            {new Date(selected.dueDate).toLocaleDateString()}
-          </p>
-          <span className={styles.sectionTitle}>Actions</span>
-          <div className={styles.customerForm}>
-            {selected.status === "DRAFT" && (
-              <>
-                <button onClick={() => openEdit(selected)}>Edit</button>
-                <button onClick={() => void action(selected, "send")}>
-                  Send
-                </button>
-                <button
-                  className={styles.dangerButton}
-                  onClick={() => void action(selected, "delete")}
-                >
-                  Delete
-                </button>
-              </>
-            )}
-            {(selected.status === "SENT" || selected.status === "OVERDUE") && (
-              <>
-                <button onClick={() => void action(selected, "mark-paid")}>
-                  Mark paid
-                </button>
-                {selected.status === "SENT" && (
-                  <button onClick={() => void action(selected, "mark-overdue")}>
-                    Mark overdue
-                  </button>
-                )}
-                <button onClick={() => void action(selected, "void")}>
-                  Void
-                </button>
-              </>
-            )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

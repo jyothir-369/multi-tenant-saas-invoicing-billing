@@ -1,0 +1,111 @@
+.backRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.backLink {
+  border: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.backLink:hover {
+  text-decoration: underline;
+}
+.lineItemRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 56px 94px 64px 90px auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 4px;
+  border-top: 1px solid var(--hover-surface);
+  font-size: 12.5px;
+  min-height: 48px;
+}
+.lineItemRow b {
+  font-size: 13px;
+  color: var(--ink);
+}
+.lineItemRow small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.lineForm {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 64px 104px 84px;
+  gap: 10px;
+  margin-top: 16px;
+}
+.lineForm input,
+.lineEditRow input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  min-height: 38px;
+  color: var(--ink);
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+}
+.lineEditRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 64px 104px 84px;
+  gap: 10px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--hover-surface);
+}
+.rowActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.rowButton {
+  border: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.rowButton:hover {
+  text-decoration: underline;
+}
+.rowButton.danger {
+  color: #b42318;
+}
+.summaryLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 12.5px;
+}
+.summaryLine small {
+  color: var(--muted);
+}
+.summaryLine b {
+  color: var(--ink);
+  text-align: right;
+}
+.totals {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+.grand {
+  font-size: 15px;
+}
+.formFooter {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}

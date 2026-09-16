@@ -55,7 +55,7 @@ export default function ReportsPage() {
     <div className={styles.main}>
       <div className={styles.heading}>
         <div>
-          <span className={styles.kicker}>REPORTING</span>
+          <span className={styles.kicker}>LEDGERLY WORKSPACE</span>
           <h1>
             Reports<span className={styles.dot}>.</span>
           </h1>

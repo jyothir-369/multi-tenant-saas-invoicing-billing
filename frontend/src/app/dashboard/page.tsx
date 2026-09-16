@@ -63,7 +63,7 @@ export default function OverviewPage() {
     <div className={styles.main}>
       <div className={styles.heading}>
         <div>
-          <span className={styles.kicker}>PERFORMANCE OVERVIEW</span>
+          <span className={styles.kicker}>LEDGERLY WORKSPACE</span>
           <h1>
             Overview<span className={styles.dot}>.</span>
           </h1>

@@ -1,7 +1,9 @@
 "use client";
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "../../page.module.css";
 import { api } from "../../../lib/api";
+import SettingsTabs from "./settings-tabs";
 type Profile = {
   email: string;
   role: string;
@@ -23,7 +25,8 @@ export default function SettingsPage() {
     [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [tab, setTab] = useState("workspace");
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -80,7 +83,7 @@ export default function SettingsPage() {
           <h1>
             Settings<span className={styles.dot}>.</span>
           </h1>
-          <p>Manage your workspace identity and account details.</p>
+          <p>Manage your workspace identity, account, and members.</p>
         </div>
       </div>
       {message && (
@@ -98,82 +101,123 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2>Workspace</h2>
-            <p>Only workspace owners can update these settings.</p>
+      <SettingsTabs active={tab} onChange={setTab} />
+      {tab === "workspace" && (
+        <>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>Workspace</h2>
+                <p>Only workspace owners can update these settings.</p>
+              </div>
+            </div>
+            <form onSubmit={save} className={styles.customerForm}>
+              <label htmlFor="workspace-name">Workspace name</label>
+              <input
+                id="workspace-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                minLength={1}
+              />
+              <button
+                className={styles.primaryButton}
+                disabled={saving || profile?.role !== "OWNER"}
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </form>
+            <span className={styles.sectionTitle}>Plan</span>
+            <p>
+              <b>{tenant?.plan || "Unavailable"}</b>
+              {profile?.role !== "OWNER" && (
+                <small>Billing changes are restricted to workspace owners.</small>
+              )}
+            </p>
+          </section>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>Team &amp; roles</h2>
+                <p>Manage who has access to this workspace.</p>
+              </div>
+              <Link className={styles.primaryButton} href="/dashboard/settings/team">
+                Manage team →
+              </Link>
+            </div>
+            <p>
+              Invite members, promote <b>Staff</b> to <b>Owner</b>, and remove
+              access. Owners only.
+            </p>
+          </section>
+        </>
+      )}
+      {tab === "account" && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h2>Your account</h2>
+              <p>Authenticated identity for this tenant.</p>
+            </div>
           </div>
-        </div>
-        <form onSubmit={save} className={styles.customerForm}>
-          <label htmlFor="workspace-name">Workspace name</label>
-          <input
-            id="workspace-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            minLength={1}
-          />
-          <button
-            className={styles.primaryButton}
-            disabled={saving || profile?.role !== "OWNER"}
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        </form>
-        <span className={styles.sectionTitle}>Plan</span>
-        <p>
-          <b>{tenant?.plan || "Unavailable"}</b>
-          {profile?.role !== "OWNER" && (
-            <small>Billing changes are restricted to workspace owners.</small>
+          <span className={styles.sectionTitle}>Signed in as</span>
+          <p>
+            <b>{profile?.email}</b>
+          </p>
+          <span className={styles.sectionTitle}>Role</span>
+          <p>
+            <b>{profile?.role}</b>
+          </p>
+          <span className={styles.sectionTitle}>Tenant</span>
+          <p>{profile?.tenantName || tenant?.name}</p>
+        </section>
+      )}
+      {tab === "usage" && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h2>Workspace usage</h2>
+              <p>Read-only totals from the current tenant.</p>
+            </div>
+          </div>
+          {stats ? (
+            <div className={styles.kpis} style={{ marginBottom: 0 }}>
+              {[
+                ["Users", stats.totalUsers],
+                ["Customers", stats.totalCustomers],
+                ["Invoices", stats.totalInvoices],
+                ["Payments", stats.totalPayments],
+              ].map(([l, v]) => (
+                <article className={styles.kpi} key={String(l)}>
+                  <div className={styles.kpiTop}>
+                    <span>{l}</span>
+                  </div>
+                  <strong>{v.toLocaleString()}</strong>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.empty}>Usage data unavailable.</div>
           )}
-        </p>
-      </section>
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2>Your account</h2>
-            <p>Authenticated identity for this tenant.</p>
+        </section>
+      )}
+      {tab === "audit" && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <h2>Audit log</h2>
+              <p>Review security and compliance events for this workspace.</p>
+            </div>
+            <Link className={styles.primaryButton} href="/dashboard/settings/audit">
+              Open audit log →
+            </Link>
           </div>
-        </div>
-        <span className={styles.sectionTitle}>Signed in as</span>
-        <p>
-          <b>{profile?.email}</b>
-        </p>
-        <span className={styles.sectionTitle}>Role</span>
-        <p>
-          <b>{profile?.role}</b>
-        </p>
-        <span className={styles.sectionTitle}>Tenant</span>
-        <p>{profile?.tenantName || tenant?.name}</p>
-      </section>
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2>Workspace usage</h2>
-            <p>Read-only totals from the current tenant.</p>
-          </div>
-        </div>
-        {stats ? (
-          <div className={styles.kpis} style={{ marginBottom: 0 }}>
-            {[
-              ["Users", stats.totalUsers],
-              ["Customers", stats.totalCustomers],
-              ["Invoices", stats.totalInvoices],
-              ["Payments", stats.totalPayments],
-            ].map(([l, v]) => (
-              <article className={styles.kpi} key={String(l)}>
-                <div className={styles.kpiTop}>
-                  <span>{l}</span>
-                </div>
-                <strong>{v.toLocaleString()}</strong>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className={styles.empty}>Usage data unavailable.</div>
-        )}
-      </section>
+          <p>
+            Every sign-in, role change, and sensitive action is recorded for
+            workspace owners.
+          </p>
+        </section>
+      )}
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
@@ -182,9 +226,8 @@ export default function SettingsPage() {
           </div>
         </div>
         <p>
-          Password changes, team management, billing plan changes, and
-          notification preferences do not currently have supported frontend
-          settings workflows.
+          Password changes, billing plan changes, and notification preferences
+          do not currently have supported frontend settings workflows.
         </p>
       </section>
     </div>

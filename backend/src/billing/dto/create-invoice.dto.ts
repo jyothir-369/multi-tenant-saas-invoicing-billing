@@ -7,7 +7,7 @@ export class CreateInvoiceDto {
 
   @IsInt()
   @IsPositive()
-  totalCents: number;
+  amount: number;
 
   @IsDateString()
   @IsNotEmpty()

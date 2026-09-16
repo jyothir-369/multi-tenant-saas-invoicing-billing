@@ -1,4 +1,5 @@
-﻿import { Module, forwardRef } from '@nestjs/common';
+﻿// TODO(item-13): implement real payment-links tests
+import { Module, forwardRef } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { WebhooksController } from './webhooks.controller';
 import { PaymentsService } from './payments.service';

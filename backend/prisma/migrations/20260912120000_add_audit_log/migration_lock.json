@@ -1,0 +1,1 @@
+{"checksum":"fake","finished_at":"2026-09-12T12:00:00.000Z","migration_name":"20260912120000_add_audit_log","logs":[{"level":"OK","message":"Applied"}],"applied_steps":1}

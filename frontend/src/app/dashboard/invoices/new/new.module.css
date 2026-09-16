@@ -1,0 +1,84 @@
+.backRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.backLink {
+  border: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.backLink:hover {
+  text-decoration: underline;
+}
+.lineRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 64px 104px 84px 30px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+}
+.lineRow input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  min-height: 38px;
+  color: var(--ink);
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lineRow input:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
+}
+.lineRow input::placeholder {
+  color: var(--subtle);
+}
+.removeRow {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.removeRow:hover {
+  color: #b42318;
+  background: var(--green-50);
+}
+.summaryLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 12.5px;
+}
+.summaryLine small {
+  color: var(--muted);
+}
+.summaryLine b {
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.totals {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+.grand {
+  font-size: 15px;
+}
