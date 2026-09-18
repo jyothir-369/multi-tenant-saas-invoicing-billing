@@ -138,24 +138,10 @@ No deployment is claimed by this repository. A reasonable deployment is Next.js 
 
 
 
-
-
-
 ## Demo walkthrough
 
-### 🎥 Ledgerly Billing Dashboard Demo
+### 🎥 Ledgerly Billing Dashboard
 
-[▶️ Watch the Ledgerly Billing Dashboard Demo](./Ledgerly%20_%20Billing%20dashboard.mp4)
-
-The walkthrough demonstrates the core Ledgerly workspace experience, including:
-
-1. Register a workspace and sign in.
-2. Create a customer, then create an invoice for that customer.
-3. Move the invoice through send, overdue/paid, or void actions.
-4. Review customer and workspace dashboard balances.
-5. If Stripe is configured, create a payment intent and deliver a signed test webhook; otherwise review the explicit provider configuration state.
-6. Open settings to inspect tenant identity, role, plan, and usage.
-7. Register a second workspace and verify that its customer and invoice lists remain tenant-isolated.
-
-> **Demo note:** The video demonstrates the Ledgerly dashboard and application workflow. Stripe confirmation, production deployment, and email delivery depend on external configuration and are not represented as live production services by this repository.
-
+[![Ledgerly Billing Dashboard Demo](docs/ledgerly-demo.gif)](
+  https://github.com/jyothir-369/multi-tenant-saas-invoicing-billing/blob/main/Ledgerly%20_%20Billing%20dashboard.mp4
+)
