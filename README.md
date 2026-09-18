@@ -108,13 +108,6 @@ Protected: `/auth/profile`, `/customers`, `/invoices`, `/dashboard/balance`, `/a
 6. Open settings to inspect tenant identity, role, plan, and usage.
 7. Register a second workspace and verify its customer/invoice lists are isolated.
 
-## Demo video
-
-Watch the billing dashboard walkthrough: [Ledgerly _ Billing dashboard.mp4](Ledgerly%20_%20Billing%20dashboard.mp4)
-
-```html
-<video src="Ledgerly _ Billing dashboard.mp4" autoplay muted loop playsinline controls width="100%"></video>
-```
 
 ## Deployment guidance
 
@@ -142,14 +135,10 @@ No deployment is claimed by this repository. A reasonable deployment is Next.js 
 
 **LinkedIn:** Ledgerly is a portfolio SaaS billing platform demonstrating tenant isolation, JWT/RBAC, invoice lifecycle management, PostgreSQL/Prisma data modeling, and Stripe webhook-oriented payment processing.
 
+## 🎥 Demo video
 
+### Ledgerly Billing Dashboard
 
+Watch the complete billing dashboard walkthrough below.
 
-
-## Demo walkthrough
-
-### 🎥 Ledgerly Billing Dashboard
-
-[![Ledgerly Billing Dashboard Demo](docs/ledgerly-demo.gif)](
-  https://github.com/jyothir-369/multi-tenant-saas-invoicing-billing/blob/main/Ledgerly%20_%20Billing%20dashboard.mp4
-)
+[Ledgerly Billing Dashboard Demo](./Ledgerly%20_%20Billing%20dashboard.mp4)
