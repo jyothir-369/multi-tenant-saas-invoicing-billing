@@ -113,7 +113,7 @@ Protected: `/auth/profile`, `/customers`, `/invoices`, `/dashboard/balance`, `/a
 Watch the billing dashboard walkthrough: [Ledgerly _ Billing dashboard.mp4](Ledgerly%20_%20Billing%20dashboard.mp4)
 
 ```html
-<video src="Ledgerly _ Billing dashboard.mp4" controls width="100%"></video>
+<video src="Ledgerly _ Billing dashboard.mp4" autoplay muted loop playsinline controls width="100%"></video>
 ```
 
 ## Deployment guidance
