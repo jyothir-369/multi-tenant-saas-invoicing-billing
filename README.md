@@ -108,6 +108,14 @@ Protected: `/auth/profile`, `/customers`, `/invoices`, `/dashboard/balance`, `/a
 6. Open settings to inspect tenant identity, role, plan, and usage.
 7. Register a second workspace and verify its customer/invoice lists are isolated.
 
+## Demo video
+
+Watch the billing dashboard walkthrough: [Ledgerly _ Billing dashboard.mp4](Ledgerly%20_%20Billing%20dashboard.mp4)
+
+```html
+<video src="Ledgerly _ Billing dashboard.mp4" controls width="100%"></video>
+```
+
 ## Deployment guidance
 
 No deployment is claimed by this repository. A reasonable deployment is Next.js on Vercel, NestJS API/worker on Render, Railway, or AWS, PostgreSQL on Neon/Supabase/managed PostgreSQL, and persistent Redis. Configure secrets in the platform secret manager, run migrations as a release step, and monitor `/health`.
